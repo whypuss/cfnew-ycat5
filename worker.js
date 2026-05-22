@@ -2682,6 +2682,79 @@ Sitemap: https://example.com/sitemap.xml
         // P1-2: Apply quarantine filtering before generating subscription
         await filterQuarantinedNodes();
 
+        // P1-2: Filter and sort nodes by reputation metrics
+        async function filterAndSortNodes() {
+            if (!kvStore || finalLinks.length === 0) {
+                return;
+            }
+
+            // P1-2: Fetch node records from KV for reputation data
+            const nodeRecords = await Promise.all(
+                finalLinks.map(async (linkData) => {
+                    if (typeof linkData !== 'object' || !linkData.ip) {
+                        return null;
+                    }
+                    const record = await getNodeRecord(linkData.ip, linkData.port);
+                    if (record) {
+                        return {
+                            linkData,
+                            record,
+                            score: computeNodeScore(record)
+                        };
+                    }
+                    return null;
+                })
+            );
+
+            // P1-2: Filter out nulls and nodes with successRate <= 0.8
+            let validNodes = nodeRecords.filter(
+                (n) => n !== null && n.record.successRate > 0.8
+            );
+
+            // P1-2: Deduplicate by ASN (keep lowest latencyScore = highest latency score is better)
+            const asnMap = new Map();
+            for (const node of validNodes) {
+                const asn = node.record.asn || 'unknown';
+                const existing = asnMap.get(asn);
+                if (!existing || node.record.latencyScore > existing.record.latencyScore) {
+                    asnMap.set(asn, node);
+                }
+            }
+
+            // P1-2: Deduplicate by /24 subnet (keep lowest latencyScore)
+            const subnetMap = new Map();
+            for (const node of validNodes) {
+                const subnet = node.record.ipSubnet || node.linkData.ip; // fallback to IP if no subnet
+                const existing = subnetMap.get(subnet);
+                if (!existing || node.record.latencyScore > existing.record.latencyScore) {
+                    subnetMap.set(subnet, node);
+                }
+            }
+
+            // P1-2: Combine deduplicated nodes (ASN dedup takes priority, then subnet dedup)
+            const deduplicated = [...asnMap.values(), ...subnetMap.values()];
+
+            // P1-2: Deduplicate final array (in case a node appears in both maps)
+            const seen = new Set();
+            const finalDeduplicated = deduplicated.filter((node) => {
+                const key = `${node.linkData.ip}:${node.linkData.port}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            // P1-2: Sort by score descending
+            finalDeduplicated.sort((a, b) => b.score - a.score);
+
+            // P1-2: Limit to max 20 nodes
+            const top20 = finalDeduplicated.slice(0, 20);
+
+            // P1-2: Replace finalLinks with filtered/sorted nodes
+            finalLinks = top20.map((n) => n.linkData);
+        }
+
+        await filterAndSortNodes();
+
         if (finalLinks.length === 0) {
             const errorRemark = "所有节点获取失败";
             const proto = atob('dmxlc3M=');
