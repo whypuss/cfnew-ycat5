@@ -1,5 +1,5 @@
-    // CFnew - 终端 v2.9.7 
-    // 版本: v2.9.7 
+    // CFnew - 终端 v2.9.8
+    // 版本: v2.9.8 
     import { connect } from 'cloudflare:sockets';
     let at = '351c9981-04b6-4103-aa4b-864aa9c91469';
     let fallbackAddress = '';
@@ -26,7 +26,7 @@
     // 自定义ECH域名（默认：cloudflare-ech.com）
     let customECHDomain = 'cloudflare-ech.com';
 
-    let scu = 'https://api.wcc.best/sub';  
+    let scu = 'https://url.v1.mk/sub';  
     // 远程配置URL（硬编码）
     const remoteConfigUrl = 'https://raw.githubusercontent.com/byJoey/test/refs/heads/main/tist.ini';
 
@@ -38,7 +38,8 @@
     let kvStore = null;
     let kvConfig = {};
     let kvConfigLastLoad = 0;
-    const KV_CACHE_TTL = 5 * 60 * 60 * 1000; // 5小时缓存
+    const KV_CACHE_TTL = 30 * 1000; // 30秒缓存（短窗口内跳过版本检查）
+    let kvConfigVersion = '';
 
     const regionMapping = {
         'HK': ['🇭🇰 香港', 'HK', 'Hong Kong'],
@@ -180,19 +181,31 @@
             return;
         }
 
+        // 短窗口内完全信任缓存，避免高频请求时打爆 KV
         if (!force && kvConfigLastLoad > 0 && (Date.now() - kvConfigLastLoad) < KV_CACHE_TTL) {
             return;
         }
 
         try {
+            // 读取小体积的版本键 c_ver（约 13B），用于跨 isolate 缓存失效
+            let ver = '';
+            try { ver = (await kvStore.get('c_ver')) || ''; } catch (_) {}
+
+            // 版本未变化且已有缓存，仅刷新时间戳，跳过完整读取
+            if (!force && ver && ver === kvConfigVersion && kvConfig && Object.keys(kvConfig).length > 0) {
+                kvConfigLastLoad = Date.now();
+                return;
+            }
+
             const configData = await kvStore.get('c');
             if (configData) {
                 kvConfig = JSON.parse(configData);
-            } else {
             }
+            kvConfigVersion = ver;
             kvConfigLastLoad = Date.now();
         } catch (error) {
-            kvConfig = {};
+            // 读取失败时保留现有缓存，避免临时故障导致配置丢失
+            if (!kvConfig) kvConfig = {};
         }
     }
 
@@ -204,6 +217,10 @@
         try {
             const configString = JSON.stringify(kvConfig);
             await kvStore.put('c', configString);
+            // 写入版本号，让其它 isolate 在下次请求时能立即看到变更
+            const newVer = String(Date.now());
+            kvConfigVersion = newVer;
+            try { await kvStore.put('c_ver', newVer); } catch (_) {}
             kvConfigLastLoad = Date.now();
         } catch (error) {
             throw error; 
@@ -491,7 +508,7 @@
                     ex = xhttpControl === 'yes' || xhttpControl === true || xhttpControl === 'true';
                 }
 
-                scu = getConfigValue('scu', env.scu) || 'https://api.wcc.best/sub';
+                scu = getConfigValue('scu', env.scu) || 'https://url.v1.mk/sub';
 
                 const preferredDomainsControl = getConfigValue('epd', env.epd || 'no');
                 if (preferredDomainsControl !== undefined && preferredDomainsControl !== '') {
@@ -809,8 +826,8 @@
                             
                         const translations = {
                             zh: {
-                                title: '终端',
-                                terminal: '终端',
+                                title: '终端 v2.9.8',
+                                terminal: '终端 v2.9.8',
                                 congratulations: '恭喜你来到这',
                                 enterU: '请输入你U变量的值',
                                 enterD: '请输入你D变量的值',
@@ -826,8 +843,8 @@
                                  reenter: '请重新输入有效的UUID'
                             },
                             fa: {
-                                title: 'ترمینال',
-                                terminal: 'ترمینال',
+                                title: 'ترمینال v2.9.8',
+                                terminal: 'ترمینال v2.9.8',
                                 congratulations: 'تبریک می‌گوییم به شما',
                                 enterU: 'لطفا مقدار متغیر U خود را وارد کنید',
                                 enterD: 'لطفا مقدار متغیر D خود را وارد کنید',

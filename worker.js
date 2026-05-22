@@ -1,5 +1,5 @@
-    // CFnew - 终端 v2.9.7 
-    // 版本: v2.9.7 
+    // CFnew - 终端 v2.9.8
+    // 版本: v2.9.8 
     import { connect } from 'cloudflare:sockets';
     let at = '351c9981-04b6-4103-aa4b-864aa9c91469';
     let fallbackAddress = '';
@@ -26,7 +26,7 @@
     // 自定义ECH域名（默认：cloudflare-ech.com）
     let customECHDomain = 'cloudflare-ech.com';
 
-    let scu = 'https://api.wcc.best/sub';  
+    let scu = 'https://url.v1.mk/sub';  
     // 远程配置URL（硬编码）
     const remoteConfigUrl = 'https://raw.githubusercontent.com/byJoey/test/refs/heads/main/tist.ini';
 
@@ -38,7 +38,8 @@
     let kvStore = null;
     let kvConfig = {};
     let kvConfigLastLoad = 0;
-    const KV_CACHE_TTL = 5 * 60 * 60 * 1000; // 5小时缓存
+    const KV_CACHE_TTL = 30 * 1000; // 30秒缓存（短窗口内跳过版本检查）
+    let kvConfigVersion = '';
 
     const regionMapping = {
         'HK': ['🇭🇰 香港', 'HK', 'Hong Kong'],
@@ -180,19 +181,31 @@
             return;
         }
 
+        // 短窗口内完全信任缓存，避免高频请求时打爆 KV
         if (!force && kvConfigLastLoad > 0 && (Date.now() - kvConfigLastLoad) < KV_CACHE_TTL) {
             return;
         }
 
         try {
+            // 读取小体积的版本键 c_ver（约 13B），用于跨 isolate 缓存失效
+            let ver = '';
+            try { ver = (await kvStore.get('c_ver')) || ''; } catch (_) {}
+
+            // 版本未变化且已有缓存，仅刷新时间戳，跳过完整读取
+            if (!force && ver && ver === kvConfigVersion && kvConfig && Object.keys(kvConfig).length > 0) {
+                kvConfigLastLoad = Date.now();
+                return;
+            }
+
             const configData = await kvStore.get('c');
             if (configData) {
                 kvConfig = JSON.parse(configData);
-            } else {
             }
+            kvConfigVersion = ver;
             kvConfigLastLoad = Date.now();
         } catch (error) {
-            kvConfig = {};
+            // 读取失败时保留现有缓存，避免临时故障导致配置丢失
+            if (!kvConfig) kvConfig = {};
         }
     }
 
@@ -204,6 +217,10 @@
         try {
             const configString = JSON.stringify(kvConfig);
             await kvStore.put('c', configString);
+            // 写入版本号，让其它 isolate 在下次请求时能立即看到变更
+            const newVer = String(Date.now());
+            kvConfigVersion = newVer;
+            try { await kvStore.put('c_ver', newVer); } catch (_) {}
             kvConfigLastLoad = Date.now();
         } catch (error) {
             throw error; 
@@ -491,7 +508,7 @@
                     ex = xhttpControl === 'yes' || xhttpControl === true || xhttpControl === 'true';
                 }
 
-                scu = getConfigValue('scu', env.scu) || 'https://api.wcc.best/sub';
+                scu = getConfigValue('scu', env.scu) || 'https://url.v1.mk/sub';
 
                 const preferredDomainsControl = getConfigValue('epd', env.epd || 'no');
                 if (preferredDomainsControl !== undefined && preferredDomainsControl !== '') {
@@ -809,8 +826,8 @@
                             
                         const translations = {
                             zh: {
-                                title: '终端',
-                                terminal: '终端',
+                                title: '终端 v2.9.8',
+                                terminal: '终端 v2.9.8',
                                 congratulations: '恭喜你来到这',
                                 enterU: '请输入你U变量的值',
                                 enterD: '请输入你D变量的值',
@@ -826,8 +843,8 @@
                                  reenter: '请重新输入有效的UUID'
                             },
                             fa: {
-                                title: 'ترمینال',
-                                terminal: 'ترمینال',
+                                title: 'ترمینال v2.9.8',
+                                terminal: 'ترمینال v2.9.8',
                                 congratulations: 'تبریک می‌گوییم به شما',
                                 enterU: 'لطفا مقدار متغیر U خود را وارد کنید',
                                 enterD: 'لطفا مقدار متغیر D خود را وارد کنید',
@@ -2524,9 +2541,7 @@ body {
                 regionNames: {
                     HK: '🇭🇰 香港', US: '🇺🇸 美国', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本',
                     KR: '🇰🇷 韩国', DE: '🇩🇪 德国', SE: '🇸🇪 瑞典', NL: '🇳🇱 荷兰',
-                    FI: '🇫🇮 芬兰', GB: '🇬🇧 英国', AU: '🇦🇺 澳洲', BR: '🇧🇷 巴西',
-                    CA: '🇨🇦 加拿大', FR: '🇫🇷 法国', CH: '🇨🇭 瑞士', RU: '🇷🇺 俄罗斯',
-                    IN: '🇮🇳 印度', TW: '🇹🇼 台湾'
+                    FI: '🇫🇮 芬兰', GB: '🇬🇧 英国'
                 },
                 terminal: '终端 v2.9.7',
                 githubProject: 'GitHub 项目',
@@ -2666,9 +2681,7 @@ body {
                 regionNames: {
                     HK: '🇭🇰 هنگ کنگ', US: '🇺🇸 آمریکا', SG: '🇸🇬 سنگاپور', JP: '🇯🇵 ژاپن',
                     KR: '🇰🇷 کره جنوبی', DE: '🇩🇪 آلمان', SE: '🇸🇪 سوئد', NL: '🇳🇱 هلند',
-                    FI: '🇫🇮 فنلاند', GB: '🇬🇧 بریتانیا', AU: '🇦🇺 استرالیا', BR: '🇧🇷 برزیل',
-                    CA: '🇨🇦 کانادا', FR: '🇫🇷 فرانسه', CH: '🇨🇭 سوئیس', RU: '🇷🇺 روسیه',
-                    IN: '🇮🇳 هند', TW: '🇹🇼 تایوان'
+                    FI: '🇫🇮 فنلاند', GB: '🇬🇧 بریتانیا'
                 },
                 terminal: 'ترمینال v2.9.7',
                 githubProject: 'پروژه GitHub',
@@ -2772,9 +2785,8 @@ body {
 .app-container {
   max-width: 680px;
   margin: 0 auto;
-  padding: env(safe-area-inset-top) 16px 100px 16px;
+  padding: 16px 16px 100px;
   -webkit-overflow-scrolling: touch;
-  box-sizing: border-box;
 }
 
 /* Header */
@@ -2853,16 +2865,15 @@ body {
 
 /* Client Grid */
 .client-grid {
-  display: grid !important;
-  grid-template-columns: repeat(2, 1fr) !important;
-  gap: 10px !important;
-  padding: 0 4px !important;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
 .client-btn {
   padding: 14px 16px;
-  background: var(--ios-card-bg);
-  border: 1px solid var(--ios-separator);
+  background: var(--ios-bg);
+  border: none;
   border-radius: var(--ios-radius);
   font-size: 15px;
   font-weight: 500;
@@ -2870,7 +2881,6 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: center;
-  box-shadow: none;
 }
 
 .client-btn:active {
@@ -2913,8 +2923,6 @@ body {
   color: var(--ios-text);
   outline: none;
   transition: all 0.2s ease;
-  box-sizing: border-box;
-  overflow-wrap: break-word;
 }
 
 .ios-input:focus {
@@ -2941,150 +2949,6 @@ body {
   background-repeat: no-repeat;
   background-position: right 16px center;
   padding-right: 40px;
-}
-
-
-
-/* Status Box (iOS style) */
-.ios-status-box {
-  background: var(--ios-bg);
-  border-radius: var(--ios-radius);
-  padding: 16px;
-  margin: 16px 0;
-}
-
-.status-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  font-size: 14px;
-  color: var(--ios-text-secondary);
-  border-bottom: 1px solid var(--ios-separator);
-}
-
-.status-row:last-child {
-  border-bottom: none;
-}
-
-.status-val {
-  color: var(--ios-blue);
-  font-weight: 500;
-}
-
-/* KV Status Box */
-.kv-status-box {
-  margin-bottom: 20px;
-  padding: 12px 16px;
-  background: var(--ios-bg);
-  border-radius: var(--ios-radius);
-  font-size: 14px;
-  color: var(--ios-text-secondary);
-}
-
-/* Check Group (iOS style) */
-.ios-check-group {
-  padding: 16px;
-  background: var(--ios-bg);
-  border-radius: var(--ios-radius);
-  margin-bottom: 12px;
-}
-
-/* iOS Form Labels */
-.form-label {
-  display: block;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--ios-text);
-  margin-bottom: 8px;
-}
-
-
-
-/* Card Dark (for config sections) */
-.ios-card-dark {
-  background: var(--ios-bg);
-  border-radius: var(--ios-radius);
-  padding: 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--ios-separator);
-}
-
-/* Toast notification */
-.ios-toast {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--ios-text);
-  color: white;
-  padding: 12px 20px;
-  border-radius: 25px;
-  font-size: 14px;
-  z-index: 9999;
-}
-
-/* Status indicators */
-.status-ok {
-  color: var(--ios-green);
-  font-weight: 600;
-}
-
-.status-error {
-  color: var(--ios-red);
-  font-weight: 600;
-}
-
-/* Hidden box */
-.hidden-box {
-  display: none;
-  padding: 10px;
-  margin: 10px 0;
-  background: var(--ios-bg);
-  border-radius: var(--ios-radius);
-  border: 1px solid var(--ios-separator);
-}
-
-/* IP result row */
-.ip-result-row {
-  background: var(--ios-bg);
-  border-radius: var(--ios-radius);
-  padding: 10px;
-  margin-bottom: 4px;
-  border: 1px solid var(--ios-separator);
-}
-
-/* Small form label */
-.form-label-sm {
-  display: block;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ios-text-secondary);
-  margin-bottom: 4px;
-}
-
-/* Result label */
-.result-label {
-  font-weight: 600;
-  color: var(--ios-blue);
-}
-
-/* iOS tag/chip */
-.ios-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  background: var(--ios-bg);
-  border-radius: 6px;
-  font-size: 12px;
-  color: var(--ios-text-secondary);
-}
-
-/* Nav link */
-.ios-nav-link {
-  color: var(--ios-blue);
-  text-decoration: none;
-  font-size: 15px;
 }
 
 /* Toggle Switch */
@@ -3631,47 +3495,31 @@ body {
 .container {
   max-width: 680px !important;
   margin: 0 auto !important;
-  padding: 20px 16px 120px 16px !important;
+  padding: 16px 16px 100px !important;
   background: var(--ios-bg) !important;
   min-height: 100vh !important;
-  box-sizing: border-box !important;
 }
 
 /* Header */
 .header {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
   text-align: center !important;
-  padding: 0 0 16px 0 !important;
-  margin-bottom: 8px !important;
-  gap: 6px !important;
+  padding: 24px 16px !important;
+  margin-bottom: 16px !important;
 }
 
 /* Title */
 .title {
-  display: block !important;
   font-size: 28px !important;
   font-weight: 700 !important;
   color: var(--ios-text) !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  margin-bottom: 4px !important;
   letter-spacing: -0.5px !important;
-  line-height: 1.2 !important;
-  width: 100% !important;
-  text-align: center !important;
 }
 
 /* Subtitle */
 .subtitle {
-  display: block !important;
   font-size: 15px !important;
   color: var(--ios-text-secondary) !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  line-height: 1.4 !important;
-  width: 100% !important;
-  text-align: center !important;
 }
 
 /* Card */
@@ -3680,7 +3528,7 @@ body {
   border-radius: var(--ios-radius-lg) !important;
   padding: 20px !important;
   margin-bottom: 16px !important;
-  box-shadow: var(--ios-shadow-lg) !important;
+  box-shadow: var(--ios-shadow) !important;
 }
 
 /* Card Title */
@@ -3716,7 +3564,6 @@ body {
   text-align: center !important;
   display: block !important;
   width: 100% !important;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.15) !important;
 }
 
 /* System Status */
@@ -3836,144 +3683,43 @@ hr {
   outline: none !important;
 }
 
-/* Action Bar */
-.cp-action-bar {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  background: rgba(242, 242, 247, 0.95) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-top: 1px solid var(--ios-separator) !important;
-  padding: 12px 16px !important;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 8px !important;
-  z-index: 1000 !important;
-  box-sizing: border-box !important;
-}
-
-/* Action Buttons */
-.cp-copy-btn, .cp-action-btn, .cp-btn, .cp-fab-save, button[onclick*="save"], button[onclick*="reset"] {
-  display: inline-flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  padding: 10px 16px !important;
-  border-radius: 10px !important;
-  font-size: 14px !important;
+/* Action buttons */
+.cp-copy-btn, .cp-action-btn, .cp-btn, button[onclick*="save"], button[onclick*="reset"] {
+  padding: 12px 20px !important;
+  border-radius: var(--ios-radius) !important;
+  font-size: 15px !important;
   font-weight: 500 !important;
   cursor: pointer !important;
+  border: none !important;
   transition: all 0.2s ease !important;
   font-family: var(--ios-font) !important;
-  border: none !important;
-  white-space: nowrap !important;
-}
-
-/* Save All Button */
-.cp-fab-save {
-  background: var(--ios-blue) !important;
-  color: white !important;
-  flex: 1 !important;
-  font-weight: 600 !important;
-  min-height: 44px !important;
-  box-shadow: 0 2px 8px rgba(0,122,255,0.3) !important;
-}
-
-.cp-fab-save:active {
-  background: var(--ios-blue-light) !important;
-  transform: scale(0.98) !important;
-}
-
-.cp-fab-icon {
-  font-size: 14px !important;
-  flex-shrink: 0 !important;
-}
-
-/* Refresh Button */
-.cp-action-btn {
-  background: var(--ios-card-bg) !important;
-  color: var(--ios-text) !important;
-  border: 1px solid var(--ios-separator) !important;
-  flex-shrink: 0 !important;
-}
-
-.cp-action-btn:active {
-  background: #E5E5EA !important;
-  transform: scale(0.97) !important;
-}
-
-/* Reset/Danger Button */
-.cp-action-btn-danger {
-  background: var(--ios-card-bg) !important;
-  color: var(--ios-red) !important;
-  border: 1px solid rgba(255,59,48,0.3) !important;
-  flex-shrink: 0 !important;
-}
-
-.cp-action-btn-danger:active {
-  background: rgba(255,59,48,0.1) !important;
-}
-
-.cp-btn-label {
-  font-size: 13px !important;
-  white-space: nowrap !important;
 }
 
 /* Matrix rain - remove for iOS look */
-.matrix-bg, .matrix-code-rain, .cp-hud, .cp-lang-wrapper, .cp-toast-stack, .cp-action-status {
+.matrix-bg, .matrix-code-rain, .cp-hud, .cp-lang-wrapper {
   display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  left: -9999px !important;
-}
-
-/* Make sure container children don't get weird positioning */
-.container * {
-  position: static !important;
-  z-index: auto !important;
-}
-
-/* ULTIMATE GHOST KILLER - 属性选择器彻底抹除所有残留视觉元素 */
-[id*="toast"], [class*="toast"], [id*="loading"], [class*="loading"],
-[id*="notification"], [class*="notification"], [id*="alert"], [class*="alert"],
-[id*="hud"], [class*="hud"], [id*="matrix"], [class*="matrix"],
-[id*="action-status"], [class*="action-status"], [class*="cp-toast"] {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  position: absolute !important;
-  left: -9999px !important;
-  width: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-/* 强制约束 body 禁止产生任何伪元素视觉 */
-body::before, body::after {
-  display: none !important;
-  content: none !important;
 }
 
         </style>
     </head>
     <body>
+        <div class="matrix-bg"></div>
+        <div class="matrix-code-rain" id="matrixCodeRain"></div>
+            <div class="cp-hud">
+                <span class="cp-hud-line"><span class="cp-hud-label">SYS::</span> ${t.terminal}</span>
+                <span class="cp-hud-line"><span class="cp-hud-label">NODE::</span> NIGHT_CITY</span>
+                <span class="cp-hud-line"><span class="cp-hud-label">LINK::</span> SECURE / ENC</span>
+            </div>
+            <div class="cp-lang-wrapper">
+                <span class="cp-lang-tag">LANG_</span>
+                <select id="languageSelector" onchange="changeLanguage(this.value)">
+                    <option value="zh" ${!isFarsi ? 'selected' : ''}>🇨🇳 中文</option>
+                    <option value="fa" ${isFarsi ? 'selected' : ''}>🇮🇷 فارسی</option>
+                </select>
+            </div>
         <div class="container">
             <div class="header">
-                    <h1 class="title" data-text="${t.title}">${t.title}</h1>
+                    <h1 class="title cp-glitch" data-text="${t.title}">${t.title}</h1>
                     <p class="subtitle">${t.subtitle}</p>
             </div>
             <div class="card">
@@ -3994,25 +3740,27 @@ body::before, body::after {
             </div>
             <div class="card">
                     <h2 class="card-title">${t.systemStatus}</h2>
-                <div id="systemStatus" class="ios-status-box">
-                        <div id="regionStatus" class="status-row region-row">${t.workerRegion}<span class="status-val">${t.checking}</span></div>
-                        <div id="geoInfo" class="status-row">${t.detectionMethod}<span class="status-val">${t.checking}</span></div>
-                        <div id="backupStatus" class="status-row">${t.proxyIPStatus}<span class="status-val">${t.checking}</span></div>
-                        <div id="currentIP" class="status-row">${t.currentIP}<span class="status-val">${t.checking}</span></div>
-                        <div id="echStatus" class="status-row">ECH: <span class="status-val">${t.checking}</span></div>
-                        <div id="regionMatch" class="status-row">${t.regionMatch}<span class="status-val">${t.checking}</span></div>
+                <div id="systemStatus" style="margin: 20px 0; padding: 15px; background: rgba(8, 4, 28, 0.8); border: 2px solid #00f0ff; box-shadow: 0 0 20px rgba(0, 240, 255, 0.3), inset 0 0 15px rgba(0, 240, 255, 0.1); position: relative; overflow: hidden;">
+                        <div style="color: #00f0ff; margin-bottom: 15px; font-weight: bold; text-shadow: 0 0 5px #00f0ff;">[ ${t.checking} ]</div>
+                        <div id="regionStatus" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.workerRegion}${t.checking}</div>
+                        <div id="geoInfo" style="margin: 8px 0; color: #7aa9c4; font-family: 'Courier New', monospace; font-size: 0.9rem; text-shadow: 0 0 3px #7aa9c4;">${t.detectionMethod}${t.checking}</div>
+                        <div id="backupStatus" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.proxyIPStatus}${t.checking}</div>
+                        <div id="currentIP" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.currentIP}${t.checking}</div>
+                        <div id="echStatus" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff; font-size: 0.9rem;">ECH状态: ${t.checking}</div>
+                        <div id="regionMatch" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.regionMatch}${t.checking}</div>
+                        <div id="selectionLogic" style="margin: 8px 0; color: #7aa9c4; font-family: 'Courier New', monospace; font-size: 0.9rem; text-shadow: 0 0 3px #7aa9c4;">${t.selectionLogic}${t.selectionLogicText}</div>
                 </div>
             </div>
             <div class="card" id="configCard" style="display: none;">
                     <h2 class="card-title">${t.configManagement}</h2>
-                <div id="kvStatus" class="kv-status-box">
+                <div id="kvStatus" style="margin-bottom: 20px; padding: 10px; background: rgba(8, 4, 28, 0.8); border: 1px solid #00f0ff; color: #00f0ff;">
                     ${t.kvStatusChecking}
                 </div>
                 <div id="configContent" style="display: none;">
                     <form id="regionForm" style="margin-bottom: 20px;">
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.specifyRegion}</label>
-                            <select id="wkRegion" class="ios-select">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.specifyRegion}</label>
+                            <select id="wkRegion" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                     <option value="">${t.autoDetect}</option>
                                     <option value="HK">${t.regionNames.HK}</option>
                                     <option value="US">${t.regionNames.US}</option>
@@ -4024,202 +3772,194 @@ body::before, body::after {
                                     <option value="NL">${t.regionNames.NL}</option>
                                     <option value="FI">${t.regionNames.FI}</option>
                                     <option value="GB">${t.regionNames.GB}</option>
-                                    <option value="AU">${t.regionNames.AU}</option>
-                                    <option value="BR">${t.regionNames.BR}</option>
-                                    <option value="CA">${t.regionNames.CA}</option>
-                                    <option value="FR">${t.regionNames.FR}</option>
-                                    <option value="CH">${t.regionNames.CH}</option>
-                                    <option value="RU">${t.regionNames.RU}</option>
-                                    <option value="IN">${t.regionNames.IN}</option>
-                                    <option value="TW">${t.regionNames.TW}</option>
                             </select>
                                 <small id="wkRegionHint" style="color: #7aa9c4; font-size: 0.85rem; display: none;">⚠️ ${t.customIPDisabledHint}</small>
                         </div>
                     </form>
                     <form id="otherConfigForm" style="margin-bottom: 20px;">
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.protocolSelection}</label>
-                            <div class="ios-check-group">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.protocolSelection}</label>
+                            <div style="padding: 15px; background: rgba(15, 3, 40, 0.6); border: 1px solid #00f0ff; border-radius: 5px;">
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="ev" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enableVLESS}</span>
                                     </label>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="et" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enableTrojan}</span>
                                     </label>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="ex" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enableXhttp}</span>
                                     </label>
                                 </div>
-                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--ios-separator);">
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0, 240, 255, 0.3);">
                                     <div style="margin-bottom: 10px;">
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                             <input type="checkbox" id="ech" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                                 <span style="font-size: 1.1rem;">${t.enableECH}</span>
                                         </label>
                                         <small style="color: #7aa9c4; font-size: 0.8rem; display: block; margin-top: 5px; margin-left: 26px;">${t.enableECHHint}</small>
                                     </div>
                                     <div style="margin-top: 15px; margin-bottom: 10px;">
-                                        <label class="form-label">${t.customDNS}</label>
-                                        <input type="text" id="customDNS" placeholder="${t.customDNSPlaceholder}" class="ios-input">
+                                        <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-size: 0.95rem;">${t.customDNS}</label>
+                                        <input type="text" id="customDNS" placeholder="${t.customDNSPlaceholder}" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                                         <small style="color: #7aa9c4; font-size: 0.8rem; display: block; margin-top: 5px;">${t.customDNSHint}</small>
                                     </div>
                                     <div style="margin-bottom: 10px;">
-                                        <label class="form-label">${t.customECHDomain}</label>
-                                        <input type="text" id="customECHDomain" placeholder="${t.customECHDomainPlaceholder}" class="ios-input">
+                                        <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-size: 0.95rem;">${t.customECHDomain}</label>
+                                        <input type="text" id="customECHDomain" placeholder="${t.customECHDomainPlaceholder}" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                                         <small style="color: #7aa9c4; font-size: 0.8rem; display: block; margin-top: 5px;">${t.customECHDomainHint}</small>
                                     </div>
                                 </div>
-                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--ios-separator);">
-                                        <label class="form-label">${t.trojanPassword}</label>
-                                        <input type="text" id="tp" placeholder="${t.trojanPasswordPlaceholder}" class="ios-input">
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0, 240, 255, 0.3);">
+                                        <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-size: 0.95rem;">${t.trojanPassword}</label>
+                                        <input type="text" id="tp" placeholder="${t.trojanPasswordPlaceholder}" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                                         <small style="color: #7aa9c4; font-size: 0.8rem; display: block; margin-top: 5px;">${t.trojanPasswordHint}</small>
                                 </div>
                                     <small style="color: #7aa9c4; font-size: 0.85rem; display: block; margin-top: 10px;">${t.protocolHint}</small>
                             </div>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.customHomepage}</label>
-                                <input type="text" id="customHomepage" placeholder="${t.customHomepagePlaceholder}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.customHomepage}</label>
+                                <input type="text" id="customHomepage" placeholder="${t.customHomepagePlaceholder}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${t.customHomepageHint}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.customPath}</label>
-                                <input type="text" id="customPath" placeholder="${isFarsi ? 'مثال: /mypath یا خالی بگذارید تا از UUID استفاده شود' : '例如: /mypath 或留空使用 UUID'}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.customPath}</label>
+                                <input type="text" id="customPath" placeholder="${isFarsi ? 'مثال: /mypath یا خالی بگذارید تا از UUID استفاده شود' : '例如: /mypath 或留空使用 UUID'}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${isFarsi ? 'مسیر اشتراک سفارشی. اگر خالی بگذارید از UUID به عنوان مسیر استفاده می‌شود.' : '自定义订阅路径。留空则使用 UUID 作为路径。'}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.customIP}</label>
-                                <input type="text" id="customIP" placeholder="${isFarsi ? 'مثال: 1.2.3.4:443' : '例如: 1.2.3.4:443'}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.customIP}</label>
+                                <input type="text" id="customIP" placeholder="${isFarsi ? 'مثال: 1.2.3.4:443' : '例如: 1.2.3.4:443'}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${isFarsi ? 'آدرس و پورت ProxyIP سفارشی' : '自定义ProxyIP地址和端口'}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.preferredIPs}</label>
-                                <input type="text" id="yx" placeholder="${isFarsi ? 'مثال: 1.2.3.4:443#گره هنگ‌کنگ,5.6.7.8:80#گره آمریکا,example.com:8443#گره سنگاپور' : '例如: 1.2.3.4:443#日本节点,5.6.7.8:80#美国节点,example.com:8443#新加坡节点'}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.preferredIPs}</label>
+                                <input type="text" id="yx" placeholder="${isFarsi ? 'مثال: 1.2.3.4:443#گره هنگ‌کنگ,5.6.7.8:80#گره آمریکا,example.com:8443#گره سنگاپور' : '例如: 1.2.3.4:443#日本节点,5.6.7.8:80#美国节点,example.com:8443#新加坡节点'}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${isFarsi ? 'فرمت: IP:پورت#نام گره یا IP:پورت (بدون # از نام پیش‌فرض استفاده می‌شود). پشتیبانی از چندین مورد، با کاما جدا می‌شوند. <span style="color: #ffb400;">IP های اضافه شده از طریق API به طور خودکار در اینجا نمایش داده می‌شوند.</span>' : '格式: IP:端口#节点名称 或 IP:端口 (无#则使用默认名称)。支持多个，用逗号分隔。<span style="color: #ffb400;">API添加的IP会自动显示在这里。</span>'}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.preferredIPsURL}</label>
-                                <input type="text" id="yxURL" placeholder="${isFarsi ? 'URL منبع لیست IP ترجیحی را وارد کنید' : '输入优选IP列表来源URL'}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.preferredIPsURL}</label>
+                                <input type="text" id="yxURL" placeholder="${isFarsi ? 'URL منبع لیست IP ترجیحی را وارد کنید' : '输入优选IP列表来源URL'}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${isFarsi ? 'URL منبع لیست IP ترجیحی سفارشی، اگر خالی بگذارید از آدرس پیش‌فرض استفاده می‌شود' : '自定义优选IP列表来源URL，留空则使用默认地址'}</small>
                         </div>
                         
-                        <div class="ios-card-dark">
-                            <h4 class="section-title">⚡ ${t.latencyTest}</h4>
+                        <div style="margin-bottom: 20px; padding: 15px; background: rgba(20, 5, 50, 0.6); border: 2px solid #7aa9c4; border-radius: 8px;">
+                            <h4 style="color: #00f0ff; margin: 0 0 15px 0; font-size: 1.1rem; text-shadow: 0 0 5px #00f0ff;">⚡ ${t.latencyTest}</h4>
                             <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;">
                                 <div style="min-width: 120px;">
-                                    <label class="form-label-sm">${t.ipSource}</label>
-                                    <select id="ipSourceSelect" class="ios-select">
+                                    <label style="display: block; margin-bottom: 5px; color: #00f0ff; font-size: 0.9rem;">${t.ipSource}</label>
+                                    <select id="ipSourceSelect" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px; cursor: pointer;">
                                         <option value="manual">${t.manualInput}</option>
                                         <option value="cfRandom">${t.cfRandomIP}</option>
                                         <option value="urlFetch">${t.urlFetch}</option>
                                     </select>
                                 </div>
                                 <div style="width: 100px;">
-                                    <label class="form-label-sm">${t.latencyTestPort}</label>
-                                    <input type="number" id="latencyTestPort" value="443" min="1" max="65535" class="ios-input">
+                                    <label style="display: block; margin-bottom: 5px; color: #00f0ff; font-size: 0.9rem;">${t.latencyTestPort}</label>
+                                    <input type="number" id="latencyTestPort" value="443" min="1" max="65535" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                                 </div>
                                 <div id="randomCountDiv" style="width: 100px; display: none;">
-                                    <label class="form-label-sm">${t.randomCount}</label>
-                                    <input type="number" id="randomIPCount" value="20" min="1" max="100" class="ios-input">
+                                    <label style="display: block; margin-bottom: 5px; color: #00f0ff; font-size: 0.9rem;">${t.randomCount}</label>
+                                    <input type="number" id="randomIPCount" value="20" min="1" max="100" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                                 </div>
                                 <div style="width: 80px;">
-                                    <label class="form-label-sm">${isFarsi ? 'رشته‌ها' : '线程'}</label>
-                                    <input type="number" id="testThreads" value="5" min="1" max="50" class="ios-input">
+                                    <label style="display: block; margin-bottom: 5px; color: #00f0ff; font-size: 0.9rem;">${isFarsi ? 'رشته‌ها' : '线程'}</label>
+                                    <input type="number" id="testThreads" value="5" min="1" max="50" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                                 </div>
                             </div>
                             <div id="manualInputDiv" style="margin-bottom: 10px;">
-                                <label class="form-label-sm">${t.latencyTestIP}</label>
-                                <input type="text" id="latencyTestInput" placeholder="${t.latencyTestIPPlaceholder}" class="ios-input">
+                                <label style="display: block; margin-bottom: 5px; color: #00f0ff; font-size: 0.9rem;">${t.latencyTestIP}</label>
+                                <input type="text" id="latencyTestInput" placeholder="${t.latencyTestIPPlaceholder}" style="width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
                             </div>
                             <div id="urlFetchDiv" style="margin-bottom: 10px; display: none;">
-                                <label class="form-label-sm">${t.fetchURL}</label>
+                                <label style="display: block; margin-bottom: 5px; color: #00f0ff; font-size: 0.9rem;">${t.fetchURL}</label>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="fetchURLInput" placeholder="${t.fetchURLPlaceholder}" class="ios-input">
-                                    <button type="button" id="fetchIPBtn" style="background: rgba(0, 200, 255, 0.2); border: 1px solid #00aaff; padding: 8px 16px; color: #00aaff; font-family: var(--ios-font); white-space: nowrap;">⬇ ${t.fetchIP}</button>
+                                    <input type="text" id="fetchURLInput" placeholder="${t.fetchURLPlaceholder}" style="flex: 1; padding: 10px; background: rgba(0, 0, 0, 0.8); border: 1px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 13px;">
+                                    <button type="button" id="fetchIPBtn" style="background: rgba(0, 200, 255, 0.2); border: 1px solid #00aaff; padding: 8px 16px; color: #00aaff; font-family: 'Courier New', monospace; cursor: pointer; white-space: nowrap;">⬇ ${t.fetchIP}</button>
                                 </div>
                             </div>
                             <div id="cfRandomDiv" style="margin-bottom: 10px; display: none;">
-                                <button type="button" id="generateCFIPBtn" class="ios-btn">🎲 ${t.generateIP}</button>
+                                <button type="button" id="generateCFIPBtn" style="background: rgba(0, 240, 255, 0.15); border: 1px solid #00f0ff; padding: 10px 20px; color: #00f0ff; font-family: 'Courier New', monospace; cursor: pointer; width: 100%; transition: all 0.3s;">🎲 ${t.generateIP}</button>
                             </div>
                             <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                <button type="button" id="startLatencyTest" class="ios-btn">▶ ${t.startTest}</button>
-                                <button type="button" id="stopLatencyTest" style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff3860; padding: 8px 16px; color: #ff3860; font-family: var(--ios-font); display: none; transition: all 0.3s;">⏹ ${t.stopTest}</button>
+                                <button type="button" id="startLatencyTest" style="background: rgba(0, 240, 255, 0.2); border: 1px solid #00f0ff; padding: 8px 16px; color: #00f0ff; font-family: 'Courier New', monospace; cursor: pointer; transition: all 0.3s;">▶ ${t.startTest}</button>
+                                <button type="button" id="stopLatencyTest" style="background: rgba(255, 0, 0, 0.2); border: 1px solid #ff3860; padding: 8px 16px; color: #ff3860; font-family: 'Courier New', monospace; cursor: pointer; display: none; transition: all 0.3s;">⏹ ${t.stopTest}</button>
                             </div>
                             <div id="latencyTestStatus" style="color: #7aa9c4; font-size: 0.9rem; margin-bottom: 10px; display: none;"></div>
                             <div id="latencyTestResults" style="max-height: 250px; overflow-y: auto; display: none;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <span class="result-label">${t.testResult}</span>
+                                    <span style="color: #00f0ff; font-weight: bold;">${t.testResult}</span>
                                     <div style="display: flex; gap: 8px;">
                                         <button type="button" id="selectAllResults" style="background: transparent; border: 1px solid #7aa9c4; padding: 4px 10px; color: #7aa9c4; font-size: 0.8rem; cursor: pointer;">${t.selectAll}</button>
                                         <button type="button" id="deselectAllResults" style="background: transparent; border: 1px solid #7aa9c4; padding: 4px 10px; color: #7aa9c4; font-size: 0.8rem; cursor: pointer;">${t.deselectAll}</button>
                                     </div>
                                 </div>
-                                <div id="cityFilterContainer" class="ip-result-row" border-radius: 4px; display: none;">
+                                <div id="cityFilterContainer" style="margin-bottom: 10px; padding: 10px; background: rgba(15, 3, 40, 0.6); border: 1px solid #7aa9c4; border-radius: 4px; display: none;">
                                     <div style="margin-bottom: 8px;">
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff; font-size: 0.9rem;">
                                             <input type="radio" name="cityFilterMode" value="all" checked style="margin-right: 6px; width: 16px; height: 16px; cursor: pointer;">
                                             <span>${isFarsi ? '全部城市' : '全部城市'}</span>
                                         </label>
-                                        <label style="margin-left: 15px;">
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff; font-size: 0.9rem; margin-left: 15px;">
                                             <input type="radio" name="cityFilterMode" value="fastest10" style="margin-right: 6px; width: 16px; height: 16px; cursor: pointer;">
                                             <span>${isFarsi ? '只选择最快的10个' : '只选择最快的10个'}</span>
                                         </label>
                                     </div>
                                     <div id="cityCheckboxesContainer" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 80px; overflow-y: auto; padding: 5px;"></div>
                                 </div>
-                                <div id="latencyResultsList" class="ip-result-row"></div>
+                                <div id="latencyResultsList" style="background: rgba(0, 0, 0, 0.5); border: 1px solid #004400; border-radius: 4px; padding: 10px;"></div>
                                 <div style="margin-top: 10px; display: flex; gap: 10px;">
-                                    <button type="button" id="overwriteSelectedToYx" class="ios-btn ios-btn-success">${isFarsi ? '覆盖添加' : '覆盖添加'}</button>
-                                    <button type="button" id="appendSelectedToYx" style="flex: 1; background: rgba(0, 178, 110, 0.3); border: 1px solid #7aa9c4; padding: 10px 20px; color: #7aa9c4; font-family: var(--ios-font); font-weight: 600; transition: all 0.3s;">${isFarsi ? '追加添加' : '追加添加'}</button>
+                                    <button type="button" id="overwriteSelectedToYx" style="flex: 1; background: rgba(0, 220, 130, 0.3); border: 1px solid #00f0ff; padding: 10px 20px; color: #00f0ff; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; transition: all 0.3s;">${isFarsi ? '覆盖添加' : '覆盖添加'}</button>
+                                    <button type="button" id="appendSelectedToYx" style="flex: 1; background: rgba(0, 178, 110, 0.3); border: 1px solid #7aa9c4; padding: 10px 20px; color: #7aa9c4; font-family: 'Courier New', monospace; font-weight: bold; cursor: pointer; transition: all 0.3s;">${isFarsi ? '追加添加' : '追加添加'}</button>
                                 </div>
                             </div>
                         </div>
 
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.socks5Config}</label>
-                                <input type="text" id="socksConfig" placeholder="${isFarsi ? 'مثال: user:pass@host:port یا host:port' : '例如: user:pass@host:port 或 host:port'}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.socks5Config}</label>
+                                <input type="text" id="socksConfig" placeholder="${isFarsi ? 'مثال: user:pass@host:port یا host:port' : '例如: user:pass@host:port 或 host:port'}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${isFarsi ? 'آدرس پروکسی SOCKS5، برای انتقال تمام ترافیک خروجی استفاده می‌شود' : 'SOCKS5代理地址，用于转发所有出站流量'}</small>
                         </div>
                     </form>
 
-                    <h3 class="section-title">${t.advancedControl}</h3>
+                    <h3 style="color: #00f0ff; margin: 20px 0 15px 0; font-size: 1.2rem;">${t.advancedControl}</h3>
                     <form id="advancedConfigForm" style="margin-bottom: 20px;">
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.subscriptionConverter}</label>
-                                <input type="text" id="scu" placeholder="${t.subscriptionConverterPlaceholder}" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.subscriptionConverter}</label>
+                                <input type="text" id="scu" placeholder="${t.subscriptionConverterPlaceholder}" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${t.subscriptionConverterHint}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.builtinPreferred}</label>
-                            <div class="ios-check-group">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.builtinPreferred}</label>
+                            <div style="padding: 15px; background: rgba(15, 3, 40, 0.6); border: 1px solid #00f0ff; border-radius: 5px;">
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="ena" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enableNativeAddress}</span>
                                     </label>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="epd" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enablePreferredDomain}</span>
                                     </label>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="epi" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enablePreferredIP}</span>
                                     </label>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <label >
+                                    <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                         <input type="checkbox" id="egi" style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1.1rem;">${t.enableGitHubPreferred}</span>
                                     </label>
@@ -4228,33 +3968,33 @@ body::before, body::after {
                             </div>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">优选IP筛选设置</label>
-                            <div class="ios-check-group">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">优选IP筛选设置</label>
+                            <div style="padding: 15px; background: rgba(15, 3, 40, 0.6); border: 1px solid #00f0ff; border-radius: 5px;">
                                 <div style="margin-bottom: 15px;">
-                                    <label class="form-label">IP版本选择</label>
+                                    <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">IP版本选择</label>
                                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                             <input type="checkbox" id="ipv4Enabled" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1rem;">IPv4</span>
                                         </label>
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                             <input type="checkbox" id="ipv6Enabled" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1rem;">IPv6</span>
                                         </label>
                                     </div>
                                 </div>
                                 <div style="margin-bottom: 10px;">
-                                    <label class="form-label">运营商选择</label>
+                                    <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">运营商选择</label>
                                     <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                             <input type="checkbox" id="ispMobile" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1rem;">移动</span>
                                         </label>
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                             <input type="checkbox" id="ispUnicom" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1rem;">联通</span>
                                         </label>
-                                        <label >
+                                        <label style="display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff;">
                                             <input type="checkbox" id="ispTelecom" checked style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
                                             <span style="font-size: 1rem;">电信</span>
                                         </label>
@@ -4264,69 +4004,71 @@ body::before, body::after {
                             </div>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.allowAPIManagement}</label>
-                            <select id="apiEnabled" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.allowAPIManagement}</label>
+                            <select id="apiEnabled" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                     <option value="">${t.apiEnabledDefault}</option>
                                     <option value="yes">${t.apiEnabledYes}</option>
                             </select>
                                 <small style="color: #ffb400; font-size: 0.85rem;">${t.apiEnabledHint}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.regionMatching}</label>
-                            <select id="regionMatching" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.regionMatching}</label>
+                            <select id="regionMatching" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                     <option value="">${t.regionMatchingDefault}</option>
                                     <option value="no">${t.regionMatchingNo}</option>
                             </select>
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${t.regionMatchingHint}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.downgradeControl}</label>
-                            <select id="downgradeControl" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.downgradeControl}</label>
+                            <select id="downgradeControl" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                     <option value="">${t.downgradeControlDefault}</option>
                                     <option value="no">${t.downgradeControlNo}</option>
                             </select>
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${t.downgradeControlHint}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.tlsControl}</label>
-                            <select id="portControl" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.tlsControl}</label>
+                            <select id="portControl" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                     <option value="">${t.tlsControlDefault}</option>
                                     <option value="yes">${t.tlsControlYes}</option>
                             </select>
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${t.tlsControlHint}</small>
                         </div>
                         <div style="margin-bottom: 15px;">
-                                <label class="form-label">${t.preferredControl}</label>
-                            <select id="preferredControl" class="ios-input">
+                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.preferredControl}</label>
+                            <select id="preferredControl" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
                                     <option value="">${t.preferredControlDefault}</option>
                                     <option value="yes">${t.preferredControlYes}</option>
                             </select>
                                 <small style="color: #7aa9c4; font-size: 0.85rem;">${t.preferredControlHint}</small>
                         </div>
                     </form>
-                    <div id="currentConfig" class="ios-card-dark">
+                    <div id="currentConfig" style="background: rgba(0, 0, 0, 0.9); border: 1px solid #00f0ff; padding: 15px; margin: 10px 0; font-family: 'Courier New', monospace; color: #00f0ff;">
                             ${t.loading}
                     </div>
-                    <div id="pathTypeInfo" class="ios-card-dark">
-                            <div class="status-ok">${t.currentConfig}</div>
+                    <div id="pathTypeInfo" style="background: rgba(15, 3, 40, 0.7); border: 1px solid #00f0ff; padding: 15px; margin: 10px 0; font-family: 'Courier New', monospace; color: #00f0ff;">
+                            <div style="font-weight: bold; margin-bottom: 8px; color: #00ff9d; text-shadow: 0 0 5px #00ff9d;">${t.currentConfig}</div>
                             <div id="pathTypeStatus">${t.checking}</div>
                     </div>
                 </div>
-                <div id="statusMessage" class="hidden-box"></div>
+                <div id="statusMessage" style="display: none; padding: 10px; margin: 10px 0; border: 1px solid #00f0ff; background: rgba(8, 4, 28, 0.8); color: #00f0ff; text-shadow: 0 0 5px #00f0ff;"></div>
             </div>
             
             <div class="card">
                     <h2 class="card-title">${t.relatedLinks}</h2>
                 <div style="text-align: center; margin: 20px 0;">
-                        <a href="https://github.com/byJoey/cfnew" target="_blank" class="ios-nav-link">${t.githubProject}</a>
-                    <a href="https://www.youtube.com/@joeyblog" target="_blank" class="ios-nav-link">YouTube @joeyblog</a>
+                        <a href="https://github.com/byJoey/cfnew" target="_blank" style="color: #00f0ff; text-decoration: none; margin: 0 20px; font-size: 1.2rem; text-shadow: 0 0 5px #00f0ff;">${t.githubProject}</a>
+                    <a href="https://www.youtube.com/@joeyblog" target="_blank" style="color: #00f0ff; text-decoration: none; margin: 0 20px; font-size: 1.2rem; text-shadow: 0 0 5px #00f0ff;">YouTube @joeyblog</a>
                 </div>
             </div>
         </div>
+        <div id="cpToastStack" class="cp-toast-stack" aria-live="polite" aria-atomic="false"></div>
+        <div id="cpActionStatus" class="cp-action-status" role="status" aria-live="polite"></div>
         <div id="cpActionBar" class="cp-action-bar" role="toolbar" aria-label="${t.configManagement}">
             <button type="button" id="cpBtnSaveAll" class="cp-fab-save" title="${isFarsi ? 'ذخیره همه تنظیمات' : '保存所有配置 (Ctrl+S)'}">
                 <span class="cp-fab-icon">▣</span>
-                <span>${isFarsi ? 'ذخیره همه' : '保存全部'}</span>
+                <span>${isFarsi ? 'ذخیره همه' : '保 存 全 部'}</span>
                 <span class="cp-fab-dot" aria-hidden="true"></span>
             </button>
             <button type="button" id="cpBtnRefresh" class="cp-action-btn" data-tip="${t.refreshConfig}" aria-label="${t.refreshConfig}">
@@ -4415,10 +4157,56 @@ body::before, body::after {
                 }
             });
 
-            // cpToast removed - cpToastStack container deleted from DOM
+            // 赛博朋克风 toast 通知 (替代 alert)
             window.cpToast = function(message, type, options) {
-                // Toast system disabled - no container element exists
-                return { dismiss: function(){}, element: null };
+                options = options || {};
+                var stack = document.getElementById('cpToastStack');
+                if (!stack) return;
+                var typeMap = { success: '✓', info: '⌬', warn: '⚠', error: '✕' };
+                var titleMap = { success: 'SUCCESS', info: 'INFO', warn: 'WARN', error: 'ERROR' };
+                type = typeMap[type] ? type : 'success';
+                var duration = options.duration || 3200;
+                var toast = document.createElement('div');
+                toast.className = 'cp-toast cp-toast-' + type;
+                toast.style.setProperty('--cp-toast-dur', duration + 'ms');
+                var icon = document.createElement('span');
+                icon.className = 'cp-toast-icon';
+                icon.textContent = typeMap[type];
+                var body = document.createElement('div');
+                body.className = 'cp-toast-body';
+                var title = document.createElement('div');
+                title.className = 'cp-toast-title';
+                title.textContent = options.title || titleMap[type];
+                var msg = document.createElement('div');
+                msg.className = 'cp-toast-msg';
+                msg.textContent = String(message == null ? '' : message);
+                body.appendChild(title);
+                body.appendChild(msg);
+                var close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'cp-toast-close';
+                close.setAttribute('aria-label', 'close');
+                close.textContent = '✕';
+                toast.appendChild(icon);
+                toast.appendChild(body);
+                toast.appendChild(close);
+                stack.appendChild(toast);
+                requestAnimationFrame(function() { toast.classList.add('cp-show'); });
+                var dismissed = false;
+                function dismiss() {
+                    if (dismissed) return;
+                    dismissed = true;
+                    toast.classList.remove('cp-show');
+                    toast.classList.add('cp-hide');
+                    setTimeout(function() {
+                        if (toast.parentNode) toast.parentNode.removeChild(toast);
+                    }, 400);
+                }
+                close.addEventListener('click', dismiss);
+                var timer = setTimeout(dismiss, duration);
+                toast.addEventListener('mouseenter', function() { clearTimeout(timer); });
+                toast.addEventListener('mouseleave', function() { timer = setTimeout(dismiss, 1200); });
+                return { dismiss: dismiss, element: toast };
             };
 
             function tryOpenApp(schemeUrl, fallbackCallback, timeout) {
@@ -4595,10 +4383,57 @@ body::before, body::after {
                 }
             }
 
-                        function createMatrixRain() {
-                // Matrix rain removed for iOS flat style - element deleted from DOM
+            function createMatrixRain() {
+                const matrixContainer = document.getElementById('matrixCodeRain');
+                if (!matrixContainer) return;
+                const cyberChars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ$%#@!?<>+=ABCDEF';
+                const palette = ['#00f0ff', '#ff2bd6', '#a347ff', '#00ff9d'];
+                const columns = Math.floor(window.innerWidth / 20);
+
+                for (let i = 0; i < columns; i++) {
+                    const column = document.createElement('div');
+                    column.className = 'matrix-column';
+                    column.style.left = (i * 20) + 'px';
+                    column.style.animationDelay = (-Math.random() * 15) + 's';
+                    column.style.animationDuration = (Math.random() * 14 + 8) + 's';
+                    column.style.fontSize = (Math.random() * 4 + 12) + 'px';
+                    column.style.opacity = (Math.random() * 0.7 + 0.3).toFixed(2);
+
+                    let text = '';
+                    const charCount = Math.floor(Math.random() * 30 + 18);
+                    for (let j = 0; j < charCount; j++) {
+                        const char = cyberChars[Math.floor(Math.random() * cyberChars.length)];
+                        const useAccent = Math.random() > 0.85;
+                        const color = useAccent ? palette[Math.floor(Math.random() * palette.length)] : '';
+                        text += color
+                            ? ('<span style="color:' + color + ';text-shadow:0 0 8px ' + color + ';">' + char + '</span><br>')
+                            : ('<span>' + char + '</span><br>');
+                    }
+                    column.innerHTML = text;
+                    matrixContainer.appendChild(column);
+                }
+
+                setInterval(function() {
+                    const cols = matrixContainer.querySelectorAll('.matrix-column');
+                    cols.forEach(function(column) {
+                        if (Math.random() > 0.94) {
+                            const chars = column.querySelectorAll('span');
+                            if (chars.length > 0) {
+                                const target = chars[Math.floor(Math.random() * chars.length)];
+                                const prev = target.style.color;
+                                target.style.color = '#ffffff';
+                                target.style.textShadow = '0 0 10px #ffffff, 0 0 18px #00f0ff';
+                                setTimeout(function() {
+                                    target.style.color = prev;
+                                    target.style.textShadow = '';
+                                }, 200);
+                            }
+                        }
+                    });
+                }, 110);
             }
-async function checkSystemStatus() {
+
+            async function checkSystemStatus() {
                 try {
                     const cfStatus = document.getElementById('cfStatus');
                     const regionStatus = document.getElementById('regionStatus');
@@ -4607,6 +4442,7 @@ async function checkSystemStatus() {
                     const currentIP = document.getElementById('currentIP');
                     const regionMatch = document.getElementById('regionMatch');
 
+                    // 获取当前语言设置（优先从Cookie/localStorage读取）
                     function getCookie(name) {
                         const value = '; ' + document.cookie;
                         const parts = value.split('; ' + name + '=');
@@ -4636,7 +4472,7 @@ async function checkSystemStatus() {
                             regionNames: {
                                 'HK': '🇭🇰 香港', 'US': '🇺🇸 美国', 'SG': '🇸🇬 新加坡', 'JP': '🇯🇵 日本',
                                 'KR': '🇰🇷 韩国', 'DE': '🇩🇪 德国', 'SE': '🇸🇪 瑞典', 'NL': '🇳🇱 荷兰',
-                                'FI': '🇫🇮 芬兰', 'GB': '🇬🇧 英国', 'AU': '🇦🇺 澳洲', 'BR': '🇧🇷 巴西', 'CA': '🇨🇦 加拿大', 'FR': '🇫🇷 法国', 'CH': '🇨🇭 瑞士', 'RU': '🇷🇺 俄罗斯', 'IN': '🇮🇳 印度', 'TW': '🇹🇼 台湾'
+                                'FI': '🇫🇮 芬兰', 'GB': '🇬🇧 英国'
                             },
                             customIPMode: '自定义ProxyIP模式 (p变量启用)',
                             customIPModeDesc: '自定义IP模式 (已禁用地区匹配)',
@@ -4661,7 +4497,7 @@ async function checkSystemStatus() {
                             regionNames: {
                                 'HK': '🇭🇰 هنگ کنگ', 'US': '🇺🇸 آمریکا', 'SG': '🇸🇬 سنگاپور', 'JP': '🇯🇵 ژاپن',
                                 'KR': '🇰🇷 کره جنوبی', 'DE': '🇩🇪 آلمان', 'SE': '🇸🇪 سوئد', 'NL': '🇳🇱 هلند',
-                                'FI': '🇫🇮 فنلاند', 'GB': '🇬🇧 بریتانیا', 'AU': '🇦🇺 استرالیا', 'BR': '🇧🇷 برزیل', 'CA': '🇨🇦 کانادا', 'FR': '🇫🇷 فرانسه', 'CH': '🇨🇭 سوئیس', 'RU': '🇷🇺 روسیه', 'IN': '🇮🇳 هند', 'TW': '🇹🇼 تایوان'
+                                'FI': '🇫🇮 فنلاند', 'GB': '🇬🇧 بریتانیا'
                             },
                             customIPMode: 'حالت ProxyIP سفارشی (متغیر p فعال است)',
                             customIPModeDesc: 'حالت IP سفارشی (تطبیق منطقه غیرفعال است)',
@@ -4681,7 +4517,7 @@ async function checkSystemStatus() {
 
                     const t = translations[isFarsi ? 'fa' : 'zh'];
 
-                    let detectedRegion = 'US';
+                    let detectedRegion = 'US'; // 默认值
                     let isCustomIPMode = false;
                     let isManualRegionMode = false;
                     try {
@@ -4692,47 +4528,53 @@ async function checkSystemStatus() {
                             isCustomIPMode = true;
                             detectedRegion = 'CUSTOM';
 
+                            // 获取自定义IP的详细信息
                             const customIPInfo = data.ci || t.unknown;
                             geoInfo.innerHTML = t.detectionMethod + '<span style="color: #ffb400;">⚙️ ' + t.customIPMode + '</span>';
                             regionStatus.innerHTML = t.workerRegion + '<span style="color: #ffb400;">🔧 ' + t.customIPModeDesc + '</span>';
 
+                            // 显示自定义IP配置状态，包含具体IP
                             if (backupStatus) backupStatus.innerHTML = t.proxyIPStatus + '<span style="color: #ffb400;">🔧 ' + t.usingCustomProxyIP + customIPInfo + '</span>';
                             if (currentIP) currentIP.innerHTML = t.currentIP + '<span style="color: #ffb400;">✅ ' + customIPInfo + t.customIPConfig + '</span>';
                             if (regionMatch) regionMatch.innerHTML = t.regionMatch + '<span style="color: #ffb400;">⚠️ ' + t.customIPModeDisabled + '</span>';
 
-                            return;
+                            return; // 提前返回，不执行后续的地区匹配逻辑
                         } else if (data.detectionMethod === '手动指定地区' || data.detectionMethod === 'تعیین منطقه دستی') {
                             isManualRegionMode = true;
                             detectedRegion = data.region;
 
                             geoInfo.innerHTML = t.detectionMethod + '<span style="color: #00b380;">' + t.manualRegion + '</span>';
-                            regionStatus.innerHTML = t.workerRegion + '<span style="color: var(--ios-green);">🎯 ' + (t.regionNames[detectedRegion] || '未知地区') + t.manualRegionDesc + '</span>';
+                            regionStatus.innerHTML = t.workerRegion + '<span style="color: #00ff9d;">🎯 ' + t.regionNames[detectedRegion] + t.manualRegionDesc + '</span>';
 
-                            if (backupStatus) backupStatus.innerHTML = t.proxyIPStatus + '<span style="color: var(--ios-green);">✅ ' + t.proxyIPAvailable + '</span>';
-                            if (currentIP) currentIP.innerHTML = t.currentIP + '<span style="color: var(--ios-green);">✅ ' + t.smartSelection + '</span>';
-                            if (regionMatch) regionMatch.innerHTML = t.regionMatch + '<span style="color: var(--ios-green);">✅ ' + t.sameRegionIP + '</span>';
+                            // 显示配置状态而不是检测状态
+                            if (backupStatus) backupStatus.innerHTML = t.proxyIPStatus + '<span style="color: #00ff9d;">✅ ' + t.proxyIPAvailable + '</span>';
+                            if (currentIP) currentIP.innerHTML = t.currentIP + '<span style="color: #00ff9d;">✅ ' + t.smartSelection + '</span>';
+                            if (regionMatch) regionMatch.innerHTML = t.regionMatch + '<span style="color: #00ff9d;">✅ ' + t.sameRegionIP + '</span>';
 
-                            return;
+                            return; // 提前返回，不执行后续的地区匹配逻辑
                         } else if (data.region && t.regionNames[data.region]) {
                             detectedRegion = data.region;
-                        }
+                    }
+
+                    geoInfo.innerHTML = t.detectionMethod + '<span style="color: #00ff9d;">' + t.cloudflareDetection + '</span>';
+
                     } catch (e) {
                         geoInfo.innerHTML = t.detectionMethod + '<span style="color: #ff3860;">' + t.detectionFailed + '</span>';
                     }
 
-                    geoInfo.innerHTML = t.detectionMethod + '<span style="color: var(--ios-green);">' + t.cloudflareDetection + '</span>';
-                    regionStatus.innerHTML = t.workerRegion + '<span style="color: var(--ios-green);">✅ ' + (t.regionNames[detectedRegion] || '未知地区') + '</span>';
+                    regionStatus.innerHTML = t.workerRegion + '<span style="color: #00ff9d;">✅ ' + t.regionNames[detectedRegion] + '</span>';
 
+                    // 直接显示配置状态，不再进行检测
                     if (backupStatus) {
-                        backupStatus.innerHTML = t.proxyIPStatus + '<span style="color: var(--ios-green);">✅ ' + t.proxyIPAvailable + '</span>';
+                        backupStatus.innerHTML = t.proxyIPStatus + '<span style="color: #00ff9d;">✅ ' + t.proxyIPAvailable + '</span>';
                     }
 
                     if (currentIP) {
-                        currentIP.innerHTML = t.currentIP + '<span style="color: var(--ios-green);">✅ ' + t.smartSelection + '</span>';
+                        currentIP.innerHTML = t.currentIP + '<span style="color: #00ff9d;">✅ ' + t.smartSelection + '</span>';
                     }
 
                     if (regionMatch) {
-                        regionMatch.innerHTML = t.regionMatch + '<span style="color: var(--ios-green);">✅ ' + t.sameRegionIP + '</span>';
+                        regionMatch.innerHTML = t.regionMatch + '<span style="color: #00ff9d;">✅ ' + t.sameRegionIP + '</span>';
                     }
                 } catch (error) {
                     function getCookie(name) {
@@ -4781,7 +4623,82 @@ async function checkSystemStatus() {
                 }
             }
 
-async function checkKVStatus() {
+            async function testAPI() {
+                try {
+                    function getCookie(name) {
+                        const value = '; ' + document.cookie;
+                        const parts = value.split('; ' + name + '=');
+                        if (parts.length === 2) return parts.pop().split(';').shift();
+                        return null;
+                    }
+
+                    const browserLang = navigator.language || navigator.userLanguage || '';
+                    const savedLang = localStorage.getItem('preferredLanguage') || getCookie('preferredLanguage');
+                    let isFarsi = false;
+
+                    if (savedLang === 'fa' || savedLang === 'fa-IR') {
+                        isFarsi = true;
+                    } else {
+                        isFarsi = browserLang.includes('fa') || browserLang.includes('fa-IR');
+                    }
+
+                    const translations = {
+                        zh: {
+                            apiTestResult: 'API检测结果: ',
+                            apiTestTime: '检测时间: ',
+                            apiTestFailed: 'API检测失败: ',
+                            unknownError: '未知错误',
+                            apiTestError: 'API测试失败: '
+                        },
+                        fa: {
+                            apiTestResult: 'نتیجه تشخیص API: ',
+                            apiTestTime: 'زمان تشخیص: ',
+                            apiTestFailed: 'تشخیص API ناموفق: ',
+                            unknownError: 'خطای ناشناخته',
+                            apiTestError: 'تست API ناموفق: '
+                        }
+                    };
+
+                    const t = translations[isFarsi ? 'fa' : 'zh'];
+
+                    const response = await fetch(window.location.pathname + '/test-api');
+                    const data = await response.json();
+
+                    if (data.detectedRegion) {
+                        cpToast(t.apiTestResult + data.detectedRegion + '\\n' + t.apiTestTime + data.timestamp, 'info', { duration: 5000 });
+                    } else {
+                        cpToast(t.apiTestFailed + (data.error || t.unknownError), 'error', { duration: 4500 });
+                    }
+                } catch (error) {
+                    function getCookie(name) {
+                        const value = '; ' + document.cookie;
+                        const parts = value.split('; ' + name + '=');
+                        if (parts.length === 2) return parts.pop().split(';').shift();
+                        return null;
+                    }
+
+                    const browserLang = navigator.language || navigator.userLanguage || '';
+                    const savedLang = localStorage.getItem('preferredLanguage') || getCookie('preferredLanguage');
+                    let isFarsi = false;
+
+                    if (savedLang === 'fa' || savedLang === 'fa-IR') {
+                        isFarsi = true;
+                    } else {
+                        isFarsi = browserLang.includes('fa') || browserLang.includes('fa-IR');
+                    }
+
+                    const translations = {
+                        zh: { apiTestError: 'API测试失败: ' },
+                        fa: { apiTestError: 'تست API ناموفق: ' }
+                    };
+
+                    const t = translations[isFarsi ? 'fa' : 'zh'];
+                    cpToast(t.apiTestError + error.message, 'error', { duration: 4500 });
+                }
+            }
+            
+            // 配置管理相关函数
+            async function checkKVStatus() {
                 const apiUrl = window.location.pathname + '/api/config';
                 try {
                     const response = await fetch(apiUrl);
@@ -4838,7 +4755,7 @@ async function checkKVStatus() {
 
                         // 检查响应是否包含KV配置信息
                         if (data && data.kvEnabled === true) {
-                            document.getElementById('kvStatus').innerHTML = '<span style="color: var(--ios-green);">' + t.kvEnabled + '</span>';
+                            document.getElementById('kvStatus').innerHTML = '<span style="color: #00ff9d;">' + t.kvEnabled + '</span>';
                             document.getElementById('configContent').style.display = 'block';
                             document.getElementById('configCard').style.display = 'block';
                             await loadCurrentConfig();
@@ -4984,14 +4901,14 @@ async function checkKVStatus() {
 
                 if (cp && cp.trim()) {
                     // 使用自定义路径 (d)
-                    pathTypeStatus.innerHTML = '<div style="color: var(--ios-green);">使用类型: <strong>自定义路径 (d)</strong></div>' +
-                        '<div class="form-hint">当前路径: <span style="color: #ffb400;">' + cp + '</span></div>' +
+                    pathTypeStatus.innerHTML = '<div style="color: #00ff9d;">使用类型: <strong>自定义路径 (d)</strong></div>' +
+                        '<div style="margin-top: 5px; color: #00f0ff;">当前路径: <span style="color: #ffb400;">' + cp + '</span></div>' +
                         '<div style="margin-top: 5px; font-size: 0.9rem; color: #7aa9c4;">访问地址: ' + 
                         (currentUrl.split('/')[0] + '//' + currentUrl.split('/')[2]) + cp + '/sub</div>';
                 } else {
                     // 使用 UUID (u)
-                    pathTypeStatus.innerHTML = '<div style="color: var(--ios-green);">使用类型: <strong>UUID 路径 (u)</strong></div>' +
-                        '<div class="form-hint">当前路径: <span style="color: #ffb400;">' + (currentPath || '(UUID)') + '</span></div>' +
+                    pathTypeStatus.innerHTML = '<div style="color: #00ff9d;">使用类型: <strong>UUID 路径 (u)</strong></div>' +
+                        '<div style="margin-top: 5px; color: #00f0ff;">当前路径: <span style="color: #ffb400;">' + (currentPath || '(UUID)') + '</span></div>' +
                         '<div style="margin-top: 5px; font-size: 0.9rem; color: #7aa9c4;">访问地址: ' + currentUrl.split('/sub')[0] + '/sub</div>';
                 }
             }
@@ -5019,7 +4936,7 @@ async function checkKVStatus() {
                     } else {
                         wkRegion.style.opacity = '1';
                         wkRegion.style.cursor = 'pointer';
-                        wkRegion.style.backgroundColor = 'var(--ios-bg)';
+                        wkRegion.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
                         // 隐藏提示信息
                         if (wkRegionHint) {
                             wkRegionHint.style.display = 'none';
@@ -5081,8 +4998,8 @@ async function checkKVStatus() {
                 if (statusDiv) {
                     statusDiv.textContent = message;
                     statusDiv.style.display = 'block';
-                    statusDiv.className = type === 'success' ? 'status-ok' : 'status-error';
-                    
+                    statusDiv.style.color = type === 'success' ? '#00f0ff' : '#ff3860';
+                    statusDiv.style.borderColor = type === 'success' ? '#00f0ff' : '#ff3860';
 
                     setTimeout(function() {
                         statusDiv.style.display = 'none';
@@ -5175,7 +5092,7 @@ async function checkKVStatus() {
                     const echConfigLength = response.headers.get('X-ECH-Config-Length');
 
                     if (echStatusHeader === 'ENABLED') {
-                        echStatusEl.innerHTML = 'ECH状态: <span style="color: var(--ios-green);">✅ 已启用' + (echConfigLength ? ' (配置长度: ' + echConfigLength + ')' : '') + '</span>';
+                        echStatusEl.innerHTML = 'ECH状态: <span style="color: #00ff9d;">✅ 已启用' + (echConfigLength ? ' (配置长度: ' + echConfigLength + ')' : '') + '</span>';
                     } else {
                         echStatusEl.innerHTML = 'ECH状态: <span style="color: #ffb400;">⚠️ 未启用</span>';
                     }
@@ -5185,7 +5102,7 @@ async function checkKVStatus() {
             }
 
             document.addEventListener('DOMContentLoaded', function() {
-                // createMatrixRain removed for iOS style
+                createMatrixRain();
                 checkSystemStatus();
                 checkKVStatus();
                 checkECHStatus();
@@ -5278,14 +5195,17 @@ async function checkKVStatus() {
                 }
                 window.saveAllConfig = saveAllConfig;
 
-                // flashActionStatus removed - cpActionStatus element deleted from DOM
                 function flashActionStatus(msg, type) {
-                    // Status display disabled - no element exists
+                    const el = document.getElementById('cpActionStatus');
+                    if (!el) return;
+                    el.textContent = msg;
+                    el.classList.toggle('cp-err', type === 'err');
+                    el.classList.add('cp-show');
+                    clearTimeout(flashActionStatus._t);
+                    flashActionStatus._t = setTimeout(function() {
+                        el.classList.remove('cp-show');
+                    }, 2400);
                 }
-
-                async function resetAllConfig() {
-                }
-
                 window.flashActionStatus = flashActionStatus;
 
                 // 绑定底部统一操作条
@@ -5614,7 +5534,7 @@ async function checkKVStatus() {
 
                             const coloName = result.colo ? getColoName(result.colo) : '';
                             const coloDisplay = coloName ? ' <span style="color: #00aaff;">[' + coloName + ']</span>' : '';
-                            info.innerHTML = '<span style="color: var(--ios-blue);">' + result.host + ':' + result.port + '</span>' + coloDisplay + ' <span style="color: #ffff00;">' + result.latency + 'ms</span>';
+                            info.innerHTML = '<span style="color: #00f0ff;">' + result.host + ':' + result.port + '</span>' + coloDisplay + ' <span style="color: #ffff00;">' + result.latency + 'ms</span>';
 
                             resultItem.appendChild(checkbox);
                             resultItem.appendChild(info);
@@ -5883,7 +5803,7 @@ async function checkKVStatus() {
 
                     cities.forEach(city => {
                         const label = document.createElement('label');
-                        label.className = 'ios-tag';
+                        label.style.cssText = 'display: inline-flex; align-items: center; cursor: pointer; color: #00f0ff; font-size: 0.85rem; padding: 4px 8px; background: rgba(20, 5, 50, 0.4); border: 1px solid #7aa9c4; border-radius: 4px;';
 
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
