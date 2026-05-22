@@ -227,6 +227,15 @@ Sitemap: https://example.com/sitemap.xml
         return { namer, setSkipNumbering };
     }
 
+    // P1-1: Hash function for subscription cache key fingerprint
+    async function hashFingerprint(input) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(input);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 32);
+    }
+
     async function initKVStore(env) {
         if (env.C) {
             try {
@@ -2356,6 +2365,33 @@ Sitemap: https://example.com/sitemap.xml
             echConfig = `${echDomain}+${dnsServer}`;
         }
 
+        // P1-1: KV subscription cache - cache key fingerprint
+        const cacheFingerprint = `${user}|${target}|${echConfig || ''}|${ev}|${et}|${ex}|${ena}|${epi}|${epd}|${egi}|${disablePreferred}|${piu}|${enableECH}`;
+        const cacheKey = `sub:${await hashFingerprint(cacheFingerprint)}`;
+
+        // P1-1: Check KV cache for HIT at start of function
+        if (kvStore) {
+            try {
+                const cached = await kvStore.get(cacheKey);
+                if (cached) {
+                    const cachedData = JSON.parse(cached);
+                    const responseHeaders = {
+                        'Content-Type': cachedData.contentType || 'text/plain; charset=utf-8',
+                        'Cache-Control': 'public, max-age=900',
+                    };
+                    if (enableECH) {
+                        responseHeaders['X-ECH-Status'] = 'ENABLED';
+                        if (echConfig) {
+                            responseHeaders['X-ECH-Config-Length'] = String(echConfig.length);
+                        }
+                    }
+                    return new Response(cachedData.subscriptionContent, {
+                        headers: responseHeaders,
+                    });
+                }
+            } catch (_) {}
+        }
+
         async function addNodesFromList(list) {
             if (ev) {
                 finalLinks.push(...generateLinksFromSource(list, user, workerDomain, echConfig));
@@ -2516,6 +2552,18 @@ Sitemap: https://example.com/sitemap.xml
                 break;
             default:
                 subscriptionContent = btoa(finalLinks.join('\n'));
+        }
+
+        // P1-1: KV subscription cache WRITE after content generation (15min TTL)
+        if (kvStore) {
+            try {
+                const cacheData = JSON.stringify({
+                    subscriptionContent: subscriptionContent,
+                    contentType: contentType,
+                    finalLinks: finalLinks,
+                });
+                await kvStore.put(cacheKey, cacheData, { expirationTtl: 900 });
+            } catch (_) {}
         }
 
         const responseHeaders = { 
