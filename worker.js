@@ -1605,6 +1605,19 @@ Sitemap: https://example.com/sitemap.xml
                             }
                         }
                     }
+                    // P1: /refresh endpoint - invalidate cache and regenerate
+                    if (url.pathname.endsWith('/refresh')) {
+                        const refreshPath = url.pathname.replace(/\/refresh$/, '');
+                        const user = refreshPath.replace(/^\//, '');
+                        if (isValidFormat(user) && user === at) {
+                            const cacheFingerprint = `${user}|${url.searchParams.get('target') || 'base64'}||${ev}|${et}|${ex}|${ena}|${epi}|${epd}|${egi}|${disablePreferred}|${piu}|${enableECH}`;
+                            const cacheKey = `sub:${await hashFingerprint(cacheFingerprint)}`;
+                            if (kvStore) await kvStore.delete(cacheKey);
+                            return new Response(JSON.stringify({ success: true, message: 'Cache invalidated, regenerating...' }), {
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                        }
+                    }
                     if (url.pathname.includes(RANDOMIZED_ROUTES['/sub'])) {
                         const pathParts = url.pathname.split('/');
                         if (pathParts.length === 2 && pathParts[1] === RANDOMIZED_ROUTES['/sub'].substring(1)) {
@@ -2722,8 +2735,9 @@ Sitemap: https://example.com/sitemap.xml
         const cacheFingerprint = `${user}|${target}|${echConfig || ''}|${ev}|${et}|${ex}|${ena}|${epi}|${epd}|${egi}|${disablePreferred}|${piu}|${enableECH}`;
         const cacheKey = `sub:${await hashFingerprint(cacheFingerprint)}`;
 
-        // P1-1: Check KV cache for HIT at start of function
-        if (kvStore) {
+        // P1-1: Check KV cache for HIT (skip if ?refresh=1)
+        const skipCache = url.searchParams.get('refresh') === '1';
+        if (kvStore && !skipCache) {
             try {
                 const cached = await kvStore.get(cacheKey);
                 if (cached) {
