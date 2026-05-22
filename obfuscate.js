@@ -3,24 +3,28 @@ const fs = require('fs');
 const source = fs.readFileSync('plain.js', 'utf8');
 const obfuscated = JavaScriptObfuscator.obfuscate(source, {
   compact: true,
-  controlFlowFlattening: true,
-  deadCodeInjection: true,
-  disableConsoleOutput: false,
-  forceCompact: true,
-  numbersToExpressions: true,
-  optionsPreset: 'high-obfuscation',
-  renameGlobals: false,
-  selfDefending: true,
-  splitStrings: true,
-  splitStringsChunkLength: 2,
   stringArray: true,
-  stringArrayCallsTransform: true,
   stringArrayEncoding: ['base64'],
-  stringArrayThreshold: 0.75,
-  target: 'browser',
-  transform: true,
-  unicodeEscapeSequence: true
+  stringArrayThreshold: 1.0,
+  stringArrayRotate: true,
+  stringArrayShuffle: true,
+  stringArrayWrappersCount: 2,
+  stringArrayWrappersChainedCalls: false,
+  stringArrayWrappersParametersMaxCount: 3,
+  renameGlobals: true,
+  identifierNamesGenerator: 'mangled-shuffled',
+  splitStrings: true,
+  splitStringsChunkLength: 1,
+  disableConsoleOutput: true,
+  unicodeEscapeSequence: true,
+  // Disabled - not worth the cost
+  controlFlowFlattening: false,
+  deadCodeInjection: false,
+  selfDefending: false,
+  debugProtection: false,
+  numbersToExpressions: false,
+  simplify: false,
+  transformObjectKeys: false
 });
-console.log('Obfuscating...');
 fs.writeFileSync('obfuscated.js', obfuscated.getObfuscatedCode());
 console.log('Done: obfuscated.js');

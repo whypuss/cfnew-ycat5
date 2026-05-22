@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #fffef8;
+            color: #333;
+            line-height: 1.6;
+        }
+        header {
+            background: #fff;
+            border-bottom: 1px solid #eee;
+            padding: 1rem 2rem;
+        }
+        nav {
+            max-width: 960px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        nav .logo {
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: #1a1a1a;
+        }
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+        }
+        nav ul li a {
+            color: #666;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+        nav ul li a:hover {
+            color: #1a1a1a;
+        }
+        main {
+            max-width: 720px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #1a1a1a;
+        }
+        p {
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+        .content {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .feature {
+            padding: 1.5rem;
+            background: #fafaf8;
+            border-radius: 6px;
+        }
+        .feature h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+        .feature p {
+            font-size: 0.9rem;
+            color: #888;
+            margin: 0;
+        }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+            font-size: 0.85rem;
+            border-top: 1px solid #eee;
+            margin-top: 4rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Example Site</div>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/about">About</a></li>
+                <li><a href="/docs">Docs</a></li>
+                <li><a href="/contact">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Welcome</h1>
+        <p>This is a simple documentation and landing page. Browse our content to learn more about what we offer.</p>
+        
+        <div class="content">
+            <p>Our platform provides reliable and fast services for developers. Get started by checking out our documentation or browsing the features below.</p>
+            
+            <div class="features">
+                <div class="feature">
+                    <h3>Quick Start</h3>
+                    <p>Get up and running in minutes with our easy-to-follow guides.</p>
+                </div>
+                <div class="feature">
+                    <h3>API Reference</h3>
+                    <p>Complete API documentation with examples and use cases.</p>
+                </div>
+                <div class="feature">
+                    <h3>Support</h3>
+                    <p>24/7 assistance available for all your questions.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2024 Example Site. All rights reserved.
+    </footer>
+</body>
+</html>
