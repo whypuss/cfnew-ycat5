@@ -4981,8 +4981,8 @@ hr {
                     typeLabel + pathLabel +
                     '<div style="margin-top: 10px;">' +
                     '<div style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 6px;">访问地址:</div>' +
-                    '<div style="display: flex; align-items: center; gap: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; overflow: hidden;">' +
-                    '<div style="flex: 1; padding: 10px 12px; font-family: \'Courier New\', monospace; font-size: 0.8rem; color: #38bdf8; overflow-x: auto; white-space: nowrap;" id="pathTypeSubUrl">' + subUrl + '</div>' +
+                    '<div style="display: flex; align-items: center; gap: 8px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; overflow: hidden; min-width: 0;">' +
+                    '<div style="flex: 1; padding: 10px 12px; font-family: \'Courier New\', monospace; font-size: 0.8rem; color: #38bdf8; overflow-x: auto; word-break: break-all; word-wrap: break-word; max-width: 100%;" id="pathTypeSubUrl">' + subUrl + '</div>' +
                     '<button onclick="copyPathUrl()" style="flex-shrink: 0; padding: 10px 14px; background: #1e40af; border: none; border-left: 1px solid #334155; color: white; font-size: 0.8rem; cursor: pointer; font-family: var(--ios-font);" title="复制链接">📋</button>' +
                     '</div>' +
                     '</div>';

@@ -3489,6 +3489,7 @@ body {
   all: initial !important;
   font-family: var(--ios-font) !important;
   box-sizing: border-box !important;
+  display: block !important;
 }
 
 /* Container */
