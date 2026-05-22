@@ -1554,12 +1554,12 @@ Sitemap: https://example.com/sitemap.xml
                         return await handleSubscriptionPage(request, at);
                     }
 
-                    if (normalizedPath === normalizedCustomPath + '/sub') {
+                    if (normalizedPath === normalizedCustomPath + RANDOMIZED_ROUTES['/sub']) {
                         return await handleSubscriptionRequest(request, at, url);
                     }
 
                     if (url.pathname.length > 1 && url.pathname !== '/') {
-                        const user = url.pathname.replace(/\/$/, '').replace('/sub', '').substring(1);
+                        const user = url.pathname.replace(/\/$/, '').replace(RANDOMIZED_ROUTES['/sub'], '').substring(1);
                         if (isValidFormat(user)) {
                             return new Response(JSON.stringify({ 
                                 error: '访问被拒绝',
@@ -1572,7 +1572,7 @@ Sitemap: https://example.com/sitemap.xml
                     }
                 } else {
                     
-                    if (url.pathname.length > 1 && url.pathname !== '/' && !url.pathname.includes('/sub')) {
+                    if (url.pathname.length > 1 && url.pathname !== '/' && !url.pathname.includes(RANDOMIZED_ROUTES['/sub'])) {
                         const user = url.pathname.replace(/\/$/, '').substring(1);
                         if (isValidFormat(user)) {
                             if (user === at) {
@@ -1585,9 +1585,9 @@ Sitemap: https://example.com/sitemap.xml
                             }
                         }
                     }
-                    if (url.pathname.includes('/sub')) {
+                    if (url.pathname.includes(RANDOMIZED_ROUTES['/sub'])) {
                         const pathParts = url.pathname.split('/');
-                        if (pathParts.length === 2 && pathParts[1] === 'sub') {
+                        if (pathParts.length === 2 && pathParts[1] === RANDOMIZED_ROUTES['/sub'].substring(1)) {
                             const user = pathParts[0].substring(1);
                             if (isValidFormat(user)) {
                                 if (user === at) {
@@ -1650,7 +1650,7 @@ Sitemap: https://example.com/sitemap.xml
 
                 const tls = params.get('security') === 'tls' || params.get('tls') === 'true';
                 const network = params.get('type') || 'ws';
-                const path = params.get('path') || '/?ed=2048';
+                const path = params.get('path') || RANDOMIZED_ROUTES['/?ed=2048'];
                 const host = params.get('host') || server;
                 const servername = params.get('sni') || host;
                 const alpnRaw = params.get('alpn') || '';
@@ -1704,7 +1704,7 @@ Sitemap: https://example.com/sitemap.xml
                 const params = new URLSearchParams(url.search);
 
                 const network = params.get('type') || 'ws';
-                const path = params.get('path') || '/?ed=2048';
+                const path = params.get('path') || RANDOMIZED_ROUTES['/?ed=2048'];
                 const host = params.get('host') || server;
                 const sni = params.get('sni') || host;
                 const alpnRaw = params.get('alpn') || '';
@@ -1810,7 +1810,7 @@ Sitemap: https://example.com/sitemap.xml
                     port: parseInt(url.port) || 443,
                     tls: p.get('security') === 'tls' || p.get('security') === 'reality',
                     network: p.get('type') || 'ws',
-                    path: p.get('path') || '/?ed=2048',
+                    path: p.get('path') || RANDOMIZED_ROUTES['/?ed=2048'],
                     host: normalizeServerHost(p.get('host') || url.hostname),
                     sni: normalizeServerHost(p.get('sni') || p.get('host') || url.hostname),
                     alpn: (p.get('alpn') || '').split(',').map(s => s.trim()).filter(Boolean),
@@ -1832,7 +1832,7 @@ Sitemap: https://example.com/sitemap.xml
                     port: parseInt(url.port) || 443,
                     tls: true,
                     network: p.get('type') || 'ws',
-                    path: p.get('path') || '/?ed=2048',
+                    path: p.get('path') || RANDOMIZED_ROUTES['/?ed=2048'],
                     host: normalizeServerHost(p.get('host') || url.hostname),
                     sni: normalizeServerHost(p.get('sni') || p.get('host') || url.hostname),
                     alpn: (p.get('alpn') || '').split(',').map(s => s.trim()).filter(Boolean),
@@ -3026,7 +3026,7 @@ Sitemap: https://example.com/sitemap.xml
         const defaultHttpsPorts = [443];
         const defaultHttpPorts = disableNonTLS ? [] : [80];
         const links = [];
-        const wsPath = '/?ed=2048';
+        const wsPath = RANDOMIZED_ROUTES['/?ed=2048'];
         const proto = atob('dmxlc3M=');
 
         const { namer, setSkipNumbering } = createNodeNamer(skipNumbering);
@@ -3124,7 +3124,7 @@ Sitemap: https://example.com/sitemap.xml
         const defaultHttpsPorts = [443];
         const defaultHttpPorts = disableNonTLS ? [] : [80];
         const links = [];
-        const wsPath = '/?ed=2048';
+        const wsPath = RANDOMIZED_ROUTES['/?ed=2048'];
 
         const password = tp || user;
 
@@ -5180,7 +5180,7 @@ Sitemap: https://example.com/sitemap.xml
 
             function generateClientLink(clientType, clientName) {
                 var currentUrl = window.location.href;
-                var subscriptionUrl = currentUrl + "/sub";
+                var subscriptionUrl = currentUrl + RANDOMIZED_ROUTES['/sub'];
                 var schemeUrl = '';
                 var displayName = clientName || '';
                 var finalUrl = subscriptionUrl;
@@ -5916,7 +5916,7 @@ Sitemap: https://example.com/sitemap.xml
 
                 try {
                     const currentUrl = window.location.href;
-                    const subscriptionUrl = currentUrl + '/sub';
+                    const subscriptionUrl = currentUrl + RANDOMIZED_ROUTES['/sub'];
 
                     echStatusEl.innerHTML = 'ECH状态: <span style="color: #d4a85a;">检测中...</span>';
 
@@ -7499,7 +7499,7 @@ Sitemap: https://example.com/sitemap.xml
         const CF_HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
         const CF_HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
         const links = [];
-        const wsPath = '/?ed=2048';
+        const wsPath = RANDOMIZED_ROUTES['/?ed=2048'];
         const proto = atob('dmxlc3M=');
 
         const { namer, setSkipNumbering } = createNodeNamer(skipNumbering);
@@ -7612,7 +7612,7 @@ Sitemap: https://example.com/sitemap.xml
         const CF_HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 
         const links = [];
-        const wsPath = '/?ed=2048';
+        const wsPath = RANDOMIZED_ROUTES['/?ed=2048'];
 
         const password = tp || user;
 
