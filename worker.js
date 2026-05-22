@@ -614,14 +614,6 @@ Sitemap: https://example.com/sitemap.xml
 
                 // Layer 1 routes - serve static content to look like a normal website
                 if (request.method === 'GET') {
-                    // GET / → return static HTML
-                    if (pathname === '/' || pathname === '/index.html') {
-                        return new Response(STATIC_HTML, {
-                            status: 200,
-                            headers: { 'Content-Type': 'text/html; charset=utf-8' }
-                        });
-                    }
-
                     // GET /robots.txt → return robots.txt
                     if (pathname === '/robots.txt') {
                         return new Response(STATIC_ROBOTS, {
@@ -646,7 +638,7 @@ Sitemap: https://example.com/sitemap.xml
 
                     // For other GET requests that look like scanning/probing, return 404
                     // This makes the worker look like a normal site, not a proxy
-                    if (!pathname.includes('/sub') && !pathname.includes('/' + (env.u || env.U || '').toLowerCase())) {
+                    if (!pathname.includes('/sub') && !pathname.includes('/' + (env.u || env.U || '').toLowerCase()) && pathname !== '/') {
                         return new Response('Not Found', { status: 404 });
                     }
                 }
