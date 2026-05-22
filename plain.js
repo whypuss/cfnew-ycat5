@@ -2722,7 +2722,7 @@ body {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${t.title}</title>
         <style>
-/* iOS Style CSS - cfnew Vue App */
+/* iOS Style CSS - cfnew App */
 
 :root {
   --ios-blue: #007AFF;
@@ -3489,15 +3489,19 @@ body {
   all: initial !important;
   font-family: var(--ios-font) !important;
   box-sizing: border-box !important;
+  display: block !important;
 }
 
 /* Container */
 .container {
+  display: block !important;
+  width: 100% !important;
   max-width: 680px !important;
   margin: 0 auto !important;
   padding: 16px 16px 100px !important;
   background: var(--ios-bg) !important;
   min-height: 100vh !important;
+  box-sizing: border-box !important;
 }
 
 /* Header */
@@ -3683,16 +3687,79 @@ hr {
   outline: none !important;
 }
 
-/* Action buttons */
-.cp-copy-btn, .cp-action-btn, .cp-btn, button[onclick*="save"], button[onclick*="reset"] {
-  padding: 12px 20px !important;
+/* Action Bar - fixed bottom */
+.cp-action-bar {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: var(--ios-bg) !important;
+  border-top: 1px solid var(--ios-separator) !important;
+  padding: 12px 16px !important;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  z-index: 1000 !important;
+  box-sizing: border-box !important;
+}
+
+/* Save All button - iOS blue */
+.cp-fab-save {
+  flex: 1 !important;
+  background: var(--ios-blue) !important;
+  color: white !important;
+  border: none !important;
   border-radius: var(--ios-radius) !important;
+  padding: 14px 16px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  font-family: var(--ios-font) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-shadow: 0 2px 8px rgba(0,122,255,0.3) !important;
+  white-space: nowrap !important;
+  all: unset !important;
+}
+
+/* Refresh and Reset buttons - iOS secondary */
+.cp-action-btn {
+  background: var(--ios-card-bg) !important;
+  color: var(--ios-blue) !important;
+  border: 1px solid var(--ios-separator) !important;
+  border-radius: var(--ios-radius) !important;
+  padding: 14px 16px !important;
   font-size: 15px !important;
   font-weight: 500 !important;
-  cursor: pointer !important;
-  border: none !important;
-  transition: all 0.2s ease !important;
   font-family: var(--ios-font) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  white-space: nowrap !important;
+  all: unset !important;
+}
+
+/* Danger (reset) button */
+.cp-action-btn-danger {
+  color: var(--ios-red) !important;
+  border-color: rgba(255,59,48,0.3) !important;
+}
+
+/* Button inner elements */
+.cp-fab-icon, .cp-btn-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.cp-fab-dot { display: none !important; }
+
+/* Save button text - no internal spaces */
+.cp-fab-save > span:not(.cp-fab-icon):not(.cp-fab-dot) {
+  letter-spacing: 0 !important;
 }
 
 /* Matrix rain - remove for iOS look */
@@ -3740,27 +3807,27 @@ hr {
             </div>
             <div class="card">
                     <h2 class="card-title">${t.systemStatus}</h2>
-                <div id="systemStatus" style="margin: 20px 0; padding: 15px; background: rgba(8, 4, 28, 0.8); border: 2px solid #00f0ff; box-shadow: 0 0 20px rgba(0, 240, 255, 0.3), inset 0 0 15px rgba(0, 240, 255, 0.1); position: relative; overflow: hidden;">
-                        <div style="color: #00f0ff; margin-bottom: 15px; font-weight: bold; text-shadow: 0 0 5px #00f0ff;">[ ${t.checking} ]</div>
-                        <div id="regionStatus" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.workerRegion}${t.checking}</div>
-                        <div id="geoInfo" style="margin: 8px 0; color: #7aa9c4; font-family: 'Courier New', monospace; font-size: 0.9rem; text-shadow: 0 0 3px #7aa9c4;">${t.detectionMethod}${t.checking}</div>
-                        <div id="backupStatus" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.proxyIPStatus}${t.checking}</div>
-                        <div id="currentIP" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.currentIP}${t.checking}</div>
-                        <div id="echStatus" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff; font-size: 0.9rem;">ECH状态: ${t.checking}</div>
-                        <div id="regionMatch" style="margin: 8px 0; color: #00f0ff; font-family: 'Courier New', monospace; text-shadow: 0 0 3px #00f0ff;">${t.regionMatch}${t.checking}</div>
-                        <div id="selectionLogic" style="margin: 8px 0; color: #7aa9c4; font-family: 'Courier New', monospace; font-size: 0.9rem; text-shadow: 0 0 3px #7aa9c4;">${t.selectionLogic}${t.selectionLogicText}</div>
+                <div id="systemStatus" style="margin: 20px 0; padding: 16px; background: var(--ios-bg); border: none; border-radius: var(--ios-radius); box-shadow: var(--ios-shadow); position: relative; overflow: hidden;">
+                        <div style="color: var(--ios-text-secondary); margin-bottom: 15px; font-weight: 600; font-size: 14px;">[ ${t.checking} ]</div>
+                        <div id="regionStatus" style="margin: 8px 0; color: var(--ios-text); font-family: var(--ios-font); font-size: 14px;">${t.workerRegion}${t.checking}</div>
+                        <div id="geoInfo" style="margin: 8px 0; color: var(--ios-text-secondary); font-family: var(--ios-font); font-size: 13px;">${t.detectionMethod}${t.checking}</div>
+                        <div id="backupStatus" style="margin: 8px 0; color: var(--ios-text); font-family: var(--ios-font); font-size: 14px;">${t.proxyIPStatus}${t.checking}</div>
+                        <div id="currentIP" style="margin: 8px 0; color: var(--ios-text); font-family: var(--ios-font); font-size: 14px;">${t.currentIP}${t.checking}</div>
+                        <div id="echStatus" style="margin: 8px 0; color: var(--ios-text); font-family: var(--ios-font); font-size: 13px;">ECH状态: ${t.checking}</div>
+                        <div id="regionMatch" style="margin: 8px 0; color: var(--ios-text); font-family: var(--ios-font); font-size: 14px;">${t.regionMatch}${t.checking}</div>
+                        <div id="selectionLogic" style="margin: 8px 0; color: var(--ios-text-secondary); font-family: var(--ios-font); font-size: 13px;">${t.selectionLogic}${t.selectionLogicText}</div>
                 </div>
             </div>
             <div class="card" id="configCard" style="display: none;">
                     <h2 class="card-title">${t.configManagement}</h2>
-                <div id="kvStatus" style="margin-bottom: 20px; padding: 10px; background: rgba(8, 4, 28, 0.8); border: 1px solid #00f0ff; color: #00f0ff;">
+                <div id="kvStatus" style="margin-bottom: 20px; padding: 12px 16px; background: var(--ios-bg); border: none; border-radius: var(--ios-radius); color: var(--ios-text-secondary);">
                     ${t.kvStatusChecking}
                 </div>
                 <div id="configContent" style="display: none;">
                     <form id="regionForm" style="margin-bottom: 20px;">
                         <div style="margin-bottom: 15px;">
-                                <label style="display: block; margin-bottom: 8px; color: #00f0ff; font-weight: bold; text-shadow: 0 0 3px #00f0ff;">${t.specifyRegion}</label>
-                            <select id="wkRegion" style="width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.8); border: 2px solid #00f0ff; color: #00f0ff; font-family: 'Courier New', monospace; font-size: 14px;">
+                                <label style="display: block; margin-bottom: 8px; color: var(--ios-text); font-weight: 600; font-size: 15px;">${t.specifyRegion}</label>
+                            <select id="wkRegion" style="width: 100%; padding: 12px 16px; background: var(--ios-bg); border: none; border-radius: var(--ios-radius); font-family: var(--ios-font); font-size: 16px; color: var(--ios-text); appearance: none;">
                                     <option value="">${t.autoDetect}</option>
                                     <option value="HK">${t.regionNames.HK}</option>
                                     <option value="US">${t.regionNames.US}</option>
@@ -4068,7 +4135,7 @@ hr {
         <div id="cpActionBar" class="cp-action-bar" role="toolbar" aria-label="${t.configManagement}">
             <button type="button" id="cpBtnSaveAll" class="cp-fab-save" title="${isFarsi ? 'ذخیره همه تنظیمات' : '保存所有配置 (Ctrl+S)'}">
                 <span class="cp-fab-icon">▣</span>
-                <span>${isFarsi ? 'ذخیره همه' : '保 存 全 部'}</span>
+                <span>${isFarsi ? 'ذخیره همه' : '保存全部'}</span>
                 <span class="cp-fab-dot" aria-hidden="true"></span>
             </button>
             <button type="button" id="cpBtnRefresh" class="cp-action-btn" data-tip="${t.refreshConfig}" aria-label="${t.refreshConfig}">
@@ -4903,13 +4970,13 @@ hr {
                     // 使用自定义路径 (d)
                     pathTypeStatus.innerHTML = '<div style="color: #00ff9d;">使用类型: <strong>自定义路径 (d)</strong></div>' +
                         '<div style="margin-top: 5px; color: #00f0ff;">当前路径: <span style="color: #ffb400;">' + cp + '</span></div>' +
-                        '<div style="margin-top: 5px; font-size: 0.9rem; color: #7aa9c4;">访问地址: ' + 
+                        '<div style="margin-top: 5px; font-size: 0.9rem; color: #7aa9c4; word-break: break-all; overflow-wrap: break-word;">访问地址: ' + 
                         (currentUrl.split('/')[0] + '//' + currentUrl.split('/')[2]) + cp + '/sub</div>';
                 } else {
                     // 使用 UUID (u)
                     pathTypeStatus.innerHTML = '<div style="color: #00ff9d;">使用类型: <strong>UUID 路径 (u)</strong></div>' +
                         '<div style="margin-top: 5px; color: #00f0ff;">当前路径: <span style="color: #ffb400;">' + (currentPath || '(UUID)') + '</span></div>' +
-                        '<div style="margin-top: 5px; font-size: 0.9rem; color: #7aa9c4;">访问地址: ' + currentUrl.split('/sub')[0] + '/sub</div>';
+                        '<div style="margin-top: 5px; font-size: 0.9rem; color: #7aa9c4; word-break: break-all; overflow-wrap: break-word;">访问地址: ' + currentUrl.split('/sub')[0] + '/sub</div>';
                 }
             }
 

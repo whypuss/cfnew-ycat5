@@ -3489,15 +3489,19 @@ body {
   all: initial !important;
   font-family: var(--ios-font) !important;
   box-sizing: border-box !important;
+  display: block !important;
 }
 
 /* Container */
 .container {
+  display: block !important;
+  width: 100% !important;
   max-width: 680px !important;
   margin: 0 auto !important;
   padding: 16px 16px 100px !important;
   background: var(--ios-bg) !important;
   min-height: 100vh !important;
+  box-sizing: border-box !important;
 }
 
 /* Header */
