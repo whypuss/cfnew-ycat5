@@ -746,6 +746,107 @@ Sitemap: https://example.com/sitemap.xml
         return defaultValue;
     }
 
+    // Phase Stable-2: Config source tracing
+    // Returns { value, source } where source is 'kv' | 'env' | 'default'
+    function getConfigValueWithSource(key, defaultValue = '', envRef) {
+        if (kvConfig[key] !== undefined && kvConfig[key] !== null && kvConfig[key] !== '') {
+            return { value: kvConfig[key], source: 'kv' };
+        }
+        // Check env (case-insensitive)
+        const envKey = envRef?.[key] !== undefined ? envRef[key] : undefined;
+        const envKeyUpper = envRef?.[key.toUpperCase()] !== undefined ? envRef[key.toUpperCase()] : undefined;
+        if (envKey !== undefined && envKey !== null && envKey !== '') {
+            return { value: envKey, source: 'env' };
+        }
+        if (envKeyUpper !== undefined && envKeyUpper !== null && envKeyUpper !== '') {
+            return { value: envKeyUpper, source: 'env' };
+        }
+        return { value: defaultValue, source: 'default' };
+    }
+
+    // Phase Stable-2: Route tracing — simulate routing decision for a given path
+    function traceRoute(path, envRef) {
+        const pathname = path.includes('?') ? path.split('?')[0] : path;
+        const normalizedPath = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+        const segments = pathname.split('/').filter(Boolean);
+        const firstSeg = segments[0] || '';
+
+        const tmpAt = (envRef?.u || envRef?.U || '').toLowerCase();
+        const tmpCp = (envRef?.d || envRef?.D || '').toLowerCase();
+        const cleanCp = tmpCp.startsWith('/') ? tmpCp.substring(1) : tmpCp;
+        const normalizedCustomPath = cleanCp ? '/' + cleanCp : '';
+
+        const traces = [];
+
+        // Check: blank/root
+        if (pathname === '/' || pathname === '') {
+            traces.push({ pattern: '/', matched: true, handler: 'terminal page (root)', source: 'fixed' });
+        }
+
+        // Check: isCustomSubPath (custom D path)
+        if (cleanCp) {
+            const isCustomSubPath = pathname === '/' + cleanCp || pathname.startsWith('/' + cleanCp + '/');
+            if (isCustomSubPath) {
+                traces.push({ pattern: `/${cleanCp}/*`, matched: true, handler: 'handleSubscriptionPage or handleSubscriptionRequest', source: 'env.D' });
+            }
+        }
+
+        // Check: ROUTE_ALIASES (e.g. /pets, /jrlmp, /ljgj)
+        // These are randomized aliases that map to the /sub subscription path
+        for (const alias of ROUTE_ALIASES) {
+            if (normalizedPath.includes(alias) || pathname.includes(alias)) {
+                traces.push({ pattern: `ROUTE_ALIAS: ${alias}`, matched: true, handler: 'handleSubscriptionRequest (alias)', source: 'ROUTE_ALIASES' });
+            }
+        }
+
+        // Check: direct alias shortcut (standalone alias without UUID prefix)
+        // The worker serves handleSubscriptionPage for any hasSubRoute() path,
+        // even if it's not a full /{uuid}/{alias} path. This is a direct shortcut.
+        // e.g. /zakx → handleSubscriptionPage (the alias lookup is inside handleSubscriptionPage)
+        if (!traces.some(t => t.matched)) {
+            // Check if this path looks like a direct alias (one segment, not a UUID, not a known route)
+            const segments = pathname.split('/').filter(Boolean);
+            if (segments.length === 1 && segments[0] && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segments[0])) {
+                traces.push({ pattern: `DIRECT_ALIAS: /${segments[0]}`, matched: true, handler: 'handleSubscriptionPage (direct alias shortcut)', source: 'direct_alias' });
+            }
+        }
+
+        // Check: RANDOMIZED_ROUTES /sub and /connect
+        for (const [routeKey, routeVal] of Object.entries(RANDOMIZED_ROUTES)) {
+            if (pathname.includes(routeVal)) {
+                traces.push({ pattern: `RANDOMIZED_ROUTES['${routeKey}'] = '${routeVal}'`, matched: true, handler: routeKey === '/sub' ? 'handleSubscriptionRequest' : 'WebSocket upgrade', source: 'RANDOMIZED_ROUTES' });
+            }
+        }
+
+        // Check: UUID direct path
+        if (firstSeg && firstSeg !== tmpAt && firstSeg !== cleanCp && !ROUTE_ALIASES.some(a => pathname.includes(a))) {
+            const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firstSeg);
+            if (isValidUUID) {
+                traces.push({ pattern: `/{uuid} = ${firstSeg}`, matched: true, handler: firstSeg === tmpAt ? 'handleSubscriptionPage' : '403 (UUID mismatch)', source: 'uuid env' });
+            }
+        }
+
+        // Check: /refresh endpoint
+        if (pathname.endsWith('/refresh')) {
+            traces.push({ pattern: '/{uuid}/refresh', matched: true, handler: 'cache invalidation', source: 'fixed' });
+        }
+
+        // Check: fixed internal routes
+        const fixedRoutes = ['/__route_debug', '__trace', '/api/config', '/api/preferred-ips', '/robots.txt', '/favicon.ico', '/sitemap.xml', '/api/posts', '/api/status'];
+        for (const fixed of fixedRoutes) {
+            if (pathname === fixed || pathname.startsWith(fixed + '/')) {
+                traces.push({ pattern: fixed, matched: true, handler: 'fixed internal handler', source: 'fixed' });
+            }
+        }
+
+        // Blanket 404 check
+        if (traces.length === 0) {
+            traces.push({ pattern: '(none)', matched: false, handler: '404 Not Found (blanket)', source: 'none' });
+        }
+
+        return traces;
+    }
+
     async function setConfigValue(key, value) {
         kvConfig[key] = value;
         await saveKVConfig();
@@ -941,6 +1042,33 @@ Sitemap: https://example.com/sitemap.xml
                             ROUTE_ALIASES: ROUTE_ALIASES,
                             cp_runtime: cp,
                             envD_secret: typeof env.d === 'undefined' && typeof env.D === 'undefined' ? 'ALL_UNDEFINED' : (env.D || 'D_EMPTY')
+                        }, null, 2), { status: 200, headers: { ...FAKE_RESPONSE_HEADERS, 'Content-Type': 'application/json' } });
+                    }
+
+                    // Phase Stable-2: Route tracing endpoint
+                    // GET /__trace?path=/zakx  → trace routing decision for that path
+                    if (pathname === '/__trace') {
+                        const tracePath = new URL(request.url).searchParams.get('path') || '/';
+                        const routeTraces = traceRoute(tracePath, env);
+                        const allKeys = ['d', 'p', 'yx', 'yxURL', 's', 'wk', 'ev', 'et', 'ex', 'ech', 'rm', 'ae', 'scu', 'ena', 'epd', 'epi', 'egi', 'ipv4', 'ipv6', 'homepage'];
+                        const configSources = {};
+                        for (const key of allKeys) {
+                            const src = getConfigValueWithSource(key, '', env);
+                            if (src.value !== '' || src.source !== 'default') {
+                                configSources[key] = src;
+                            }
+                        }
+                        return new Response(JSON.stringify({
+                            trace_path: tracePath,
+                            route_traces: routeTraces,
+                            config_sources: configSources,
+                            routing: {
+                                RANDOMIZED_ROUTES: RANDOMIZED_ROUTES,
+                                ROUTE_ALIASES: ROUTE_ALIASES,
+                                env_d: env.D || env.d || null,
+                                env_u: env.U || env.u || null,
+                                env_p: env.P || env.p || null
+                            }
                         }, null, 2), { status: 200, headers: { ...FAKE_RESPONSE_HEADERS, 'Content-Type': 'application/json' } });
                     }
 
@@ -5312,6 +5440,8 @@ Sitemap: https://example.com/sitemap.xml
             // 远程配置URL（硬编码）
             var REMOTE_CONFIG_URL = "${ remoteConfigUrl }";
 
+            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
+            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
             const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
             // 翻译对象
             const translations = {
