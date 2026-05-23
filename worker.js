@@ -3757,14 +3757,14 @@ Sitemap: https://example.com/sitemap.xml
                         encryption: 'none', 
                         security: 'tls', 
                         sni: workerDomain, 
-                        fp: enableECH ? 'chrome' : 'randomized',
+                        fp: 'chrome',
                         type: 'ws', 
                         host: workerDomain, 
                         path: wsPath
                     });
 
                     // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                    if (enableECH) {
+                    if (echConfig) {
                         const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                         const echDomain = customECHDomain || 'cloudflare-ech.com';
                         wsParams.set('ech', `${echDomain}+${dnsServer}`);
@@ -3861,7 +3861,7 @@ Sitemap: https://example.com/sitemap.xml
                     });
 
                     // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                    if (enableECH) {
+                    if (echConfig) {
                         const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                         const echDomain = customECHDomain || 'cloudflare-ech.com';
                         wsParams.set('ech', `${echDomain}+${dnsServer}`);
@@ -6144,6 +6144,8 @@ Sitemap: https://example.com/sitemap.xml
                     document.getElementById('backupStatus').innerHTML = t.proxyIPStatus + '<span style="color: #d47a7a;">❌ ' + t.detectionFailed + '</span>';
                     document.getElementById('currentIP').innerHTML = t.currentIP + '<span style="color: #d47a7a;">❌ ' + t.detectionFailed + '</span>';
                     document.getElementById('regionMatch').innerHTML = t.regionMatch + '<span style="color: #d47a7a;">❌ ' + t.detectionFailed + '</span>';
+                    const echStatusEl = document.getElementById('echStatus');
+                    if (echStatusEl) echStatusEl.innerHTML = 'ECH状态: <span style="color: #d47a7a;">❌ ' + t.detectionFailed + '</span>';
                 }
             }
 
@@ -8210,10 +8212,10 @@ Sitemap: https://example.com/sitemap.xml
             if (CF_HTTPS_PORTS.includes(port)) {
                 const suffix = '-WS-TLS';
                 const wsNodeName = getNodeName(suffix);
-                let link = `${proto}://${user}@${safeIP}:${port}?encryption=none&security=tls&sni=${workerDomain}&fp=${enableECH ? 'chrome' : 'randomized'}&type=ws&host=${workerDomain}&path=${wsPath}`;
+                let link = `${proto}://${user}@${safeIP}:${port}?encryption=none&security=tls&sni=${workerDomain}&fp=chrome&type=ws&host=${workerDomain}&path=${wsPath}`;
 
                 // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                if (enableECH) {
+                if (echConfig) {
                     const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                     const echDomain = customECHDomain || 'cloudflare-ech.com';
                     link += `&ech=${encodeURIComponent(`${echDomain}+${dnsServer}`)}`;
@@ -8232,10 +8234,10 @@ Sitemap: https://example.com/sitemap.xml
             } else {
                 const suffix = '-WS-TLS';
                 const wsNodeName = getNodeName(suffix);
-                let link = `${proto}://${user}@${safeIP}:${port}?encryption=none&security=tls&sni=${workerDomain}&fp=${enableECH ? 'chrome' : 'randomized'}&type=ws&host=${workerDomain}&path=${wsPath}`;
+                let link = `${proto}://${user}@${safeIP}:${port}?encryption=none&security=tls&sni=${workerDomain}&fp=chrome&type=ws&host=${workerDomain}&path=${wsPath}`;
 
                 // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                if (enableECH) {
+                if (echConfig) {
                     const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                     const echDomain = customECHDomain || 'cloudflare-ech.com';
                     link += `&ech=${encodeURIComponent(`${echDomain}+${dnsServer}`)}`;
@@ -8284,7 +8286,7 @@ Sitemap: https://example.com/sitemap.xml
                 mode: 'stream-one'
             });
 
-            if (enableECH) {
+            if (echConfig) {
                 const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                 const echDomain = customECHDomain || 'cloudflare-ech.com';
                 params.set('ech', `${echDomain}+${dnsServer}`);
@@ -8327,7 +8329,7 @@ Sitemap: https://example.com/sitemap.xml
                 let link = `${atob('dHJvamFuOi8v')}${password}@${safeIP}:${port}?security=tls&sni=${workerDomain}&fp=chrome&type=ws&host=${workerDomain}&path=${wsPath}`;
 
                 // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                if (enableECH) {
+                if (echConfig) {
                     const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                     const echDomain = customECHDomain || 'cloudflare-ech.com';
                     link += `&ech=${encodeURIComponent(`${echDomain}+${dnsServer}`)}`;
@@ -8348,7 +8350,7 @@ Sitemap: https://example.com/sitemap.xml
                 let link = `${atob('dHJvamFuOi8v')}${password}@${safeIP}:${port}?security=tls&sni=${workerDomain}&fp=chrome&type=ws&host=${workerDomain}&path=${wsPath}`;
 
                 // 如果启用了ECH，添加ech参数（ECH需要伪装成Chrome浏览器）
-                if (enableECH) {
+                if (echConfig) {
                     const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
                     const echDomain = customECHDomain || 'cloudflare-ech.com';
                     link += `&ech=${encodeURIComponent(`${echDomain}+${dnsServer}`)}`;
