@@ -1274,13 +1274,14 @@ Sitemap: https://example.com/sitemap.xml
                                 }
                                 break; // fall through to legacy dispatch for other fixed routes
                             case 'randomized':
+                                // Stable-3A: handle randomized routes directly here
+                                // WebSocket routes (handleWsRequest) have fallback region detection
+                                // so safe to call early. Non-WS routes (handleSubscriptionRequest)
+                                // need full config context → fall through to legacy dispatch.
                                 if (match.handler === 'handleWsRequest') {
-                                    // Stable-3A: WebSocket routes fall through to legacy dispatch
-                                    // (needs currentWorkerRegion, at, ev, et — set after config loading)
-                                    break;
+                                    return await handleWsRequest(request);
                                 }
-                                // handleSubscriptionRequest for /sub randomized route
-                                // Stable-3A: fall through to legacy dispatch (needs config context)
+                                // handleSubscriptionRequest for /sub → fall through to legacy
                                 break;
                             case 'custom_path':
                                 // Stable-3A: custom D path — delegate to legacy dispatch
@@ -1305,16 +1306,18 @@ Sitemap: https://example.com/sitemap.xml
 
                     // For other GET requests that look like scanning/probing, return 404
                     // This makes the worker look like a normal site, not a proxy
-                    // Also allow: custom D path, ROUTE_ALIASES, RANDOMIZED_ROUTES values,
+                    // Also allow: custom D path, ROUTE_ALIASES, RANDOMIZED_ROUTES keys AND values,
                     // and unknown single-segment paths (fall through to legacy dispatch for direct alias)
                     const tmpEnvCp = (env.d || env.D || '').toLowerCase();
                     const cleanCp2 = tmpEnvCp.startsWith('/') ? tmpEnvCp.substring(1) : tmpEnvCp;
                     const isCustomSubPath = cleanCp2 && (pathname === '/' + cleanCp2 || pathname.startsWith('/' + cleanCp2 + '/'));
+                    // Stable-3A fix: also check RANDOMIZED_ROUTES KEYS (/sub, /connect), not just values (/syv, /data)
+                    const isRandRouteKey = Object.keys(RANDOMIZED_ROUTES).includes(pathname);
                     const isRandRouteVal = Object.values(RANDOMIZED_ROUTES).some(rv => pathname === rv || pathname.startsWith(rv + '/'));
                     const pathSegs = pathname.split('/').filter(Boolean);
                     const isUnknownSingleSeg = pathSegs.length === 1 && pathname !== '/' &&
                         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pathSegs[0]);
-                    if (!hasSubRoute(pathname) && !isRandRouteVal && !pathname.includes('/' + (env.u || env.U || '').toLowerCase()) && !isCustomSubPath && pathname !== '/' && !isUnknownSingleSeg) {
+                    if (!hasSubRoute(pathname) && !isRandRouteKey && !isRandRouteVal && !pathname.includes('/' + (env.u || env.U || '').toLowerCase()) && !isCustomSubPath && pathname !== '/' && !isUnknownSingleSeg) {
                         return new Response('Not Found', { status: 404 });
                     }
                 }
@@ -1340,8 +1343,10 @@ Sitemap: https://example.com/sitemap.xml
                                     // Stable-3A: fall through to legacy dispatch (needs config context)
                                     break;
                                 }
-                                // Stable-3A: fall through to legacy dispatch
-                                break;
+                                // Stable-3A: handle randomized /sub route directly here
+                                // Must init KV first so handleSubscriptionRequest can read yx/customPreferredIPs
+                                await initKVStore(env);
+                                return await handleSubscriptionRequest(request, at, null);
                             case 'direct_alias':
                                 return await handleSubscriptionPage(request, at);
                             case 'uuid_path':
@@ -1366,13 +1371,15 @@ Sitemap: https://example.com/sitemap.xml
                     const firstSeg = pathSegments[0] || '';
                     const cleanCp = tmpCp.startsWith('/') ? tmpCp.substring(1) : tmpCp;
                     // P2-0: Allow sub route aliases without UUID prefix
-                    // Also allow RANDOMIZED_ROUTES values (e.g. /syv, /data)
+                    // Also allow RANDOMIZED_ROUTES keys AND values (e.g. /sub, /syv, /connect, /data)
                     const isSubAlias = hasSubRoute(reqUrl.pathname);
+                    // Stable-3A fix: also check RANDOMIZED_ROUTES KEYS (/sub, /connect)
+                    const isRandRouteKey2 = Object.keys(RANDOMIZED_ROUTES).includes(pathname);
                     const isRandRouteVal = Object.values(RANDOMIZED_ROUTES).some(rv => pathname === rv || pathname.startsWith(rv + '/'));
                     const pathSegs2 = pathname.split('/').filter(Boolean);
                     const isUnknownSingleSeg2 = pathSegs2.length === 1 &&
                         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pathSegs2[0]);
-                    if (!isSubAlias && !isRandRouteVal && firstSeg !== tmpAt && (cleanCp ? firstSeg !== cleanCp : true) && !isUnknownSingleSeg2) {
+                    if (!isSubAlias && !isRandRouteKey2 && !isRandRouteVal && firstSeg !== tmpAt && (cleanCp ? firstSeg !== cleanCp : true) && !isUnknownSingleSeg2) {
                         return new Response('Not Found', { status: 404 });
                     }
                 }
@@ -2120,6 +2127,15 @@ Sitemap: https://example.com/sitemap.xml
                         return await handleSubscriptionPage(request, at);
                     }
 
+                    // Stable-3: Also handle RANDOMIZED_ROUTES by KEY (/sub, /connect)
+                    // e.g. /sub → handleSubscriptionRequest, /connect → handleWsRequest
+                    if (Object.keys(RANDOMIZED_ROUTES).includes(normalizedPath)) {
+                        const routeHandler = RANDOMIZED_ROUTES[normalizedPath];
+                        if (routeHandler === '/data') {
+                            return await handleWsRequest(request);
+                        }
+                        return await handleSubscriptionRequest(request, at, url);
+                    }
                     // Stable-3: Also handle RANDOMIZED_ROUTES in custom path mode
                     // e.g. /syv (randomized /sub) or /data (randomized /connect)
                     for (const [routeKey, routeVal] of Object.entries(RANDOMIZED_ROUTES)) {
@@ -5673,17 +5689,7 @@ Sitemap: https://example.com/sitemap.xml
             // 远程配置URL（硬编码）
             var REMOTE_CONFIG_URL = "${ remoteConfigUrl }";
 
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
-            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' };
+            const FAKE_RESPONSE_HEADERS = { 'x-build': 'x-build-omr', 'x-edge': 'x-build-cnl', 'x-runtime': 'server-timing-tuv', 'server-timing': 'x-build-nup' }; // 浏览器端常量注入标记
             // 翻译对象
             const translations = {
                 zh: {
