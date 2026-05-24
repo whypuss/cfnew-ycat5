@@ -129,28 +129,55 @@ Sitemap: https://example.com/sitemap.xml
         'Multacom': ['Multacom', 'Multacom']
     };
 
-    // ★ CMI 修復：backupIPs 硬編碼 CF IP，避免 DNS 迴圈
-    // 移動用戶對這些 IP 段相對友好
+    // ★ CMI 修復：backupIPs 回復 ProxyIP 域名，Worker 內部做 DNS 預解析
+    // DNS 迴圈根因：Worker fetch 過程中做 DNS 解析 proxy → CF → 回 Worker
+    // 修復：fetch 開始時一次性預解析所有 backupIP，之後全部用 IP 直連
     let backupIPs = [
-        // HK — 移動 CMI 出口最近的 PoP
-        { ip: '172.65.0.1', region: 'HK', regionCode: 'HK', port: 443 },
-        { ip: '104.18.0.1', region: 'HK', regionCode: 'HK', port: 443 },
-        // US — 移動繞美，備用
-        { ip: '172.66.0.1', region: 'US', regionCode: 'US', port: 443 },
-        { ip: '104.19.0.1', region: 'US', regionCode: 'US', port: 443 },
-        // SG — 東南亞移動友好
-        { ip: '172.64.0.1', region: 'SG', regionCode: 'SG', port: 443 },
-        { ip: '104.16.0.1', region: 'SG', regionCode: 'SG', port: 443 },
-        // JP — 移動較友好
-        { ip: '104.19.128.1', region: 'JP', regionCode: 'JP', port: 443 },
-        { ip: '104.18.128.1', region: 'JP', regionCode: 'JP', port: 443 },
-        // KR
-        { ip: '172.65.128.1', region: 'KR', regionCode: 'KR', port: 443 },
-        { ip: '104.20.128.1', region: 'KR', regionCode: 'KR', port: 443 },
-        // DE/歐洲
-        { ip: '172.66.128.1', region: 'DE', regionCode: 'DE', port: 443 },
-        { ip: '104.21.128.1', region: 'DE', regionCode: 'DE', port: 443 },
+        { domain: 'ProxyIP.HK.CMLiussss.net', region: 'HK', regionCode: 'HK', port: 443 },
+        { domain: 'ProxyIP.US.CMLiussss.net', region: 'US', regionCode: 'US', port: 443 },
+        { domain: 'ProxyIP.SG.CMLiussss.net', region: 'SG', regionCode: 'SG', port: 443 },
+        { domain: 'ProxyIP.JP.CMLiussss.net', region: 'JP', regionCode: 'JP', port: 443 },
+        { domain: 'ProxyIP.KR.CMLiussss.net', region: 'KR', regionCode: 'KR', port: 443 },
+        { domain: 'ProxyIP.DE.CMLiussss.net', region: 'DE', regionCode: 'DE', port: 443 },
+        { domain: 'ProxyIP.SE.CMLiussss.net', region: 'SE', regionCode: 'SE', port: 443 },
+        { domain: 'ProxyIP.NL.CMLiussss.net', region: 'NL', regionCode: 'NL', port: 443 },
+        { domain: 'ProxyIP.FI.CMLiussss.net', region: 'FI', regionCode: 'FI', port: 443 },
+        { domain: 'ProxyIP.GB.CMLiussss.net', region: 'GB', regionCode: 'GB', port: 443 },
+        { domain: 'ProxyIP.AU.CMLiussss.net', region: 'AU', regionCode: 'AU', port: 443 },
+        { domain: 'ProxyIP.BR.CMLiussss.net', region: 'BR', regionCode: 'BR', port: 443 },
+        { domain: 'ProxyIP.CA.CMLiussss.net', region: 'CA', regionCode: 'CA', port: 443 },
+        { domain: 'ProxyIP.FR.CMLiussss.net', region: 'FR', regionCode: 'FR', port: 443 },
+        { domain: 'ProxyIP.CH.CMLiussss.net', region: 'CH', regionCode: 'CH', port: 443 },
+        { domain: 'ProxyIP.RU.CMLiussss.net', region: 'RU', regionCode: 'RU', port: 443 },
+        { domain: 'ProxyIP.IN.CMLiussss.net', region: 'IN', regionCode: 'IN', port: 443 },
+        { domain: 'ProxyIP.TW.CMLiussss.net', region: 'TW', regionCode: 'TW', port: 443 },
+        { domain: 'ProxyIP.Oracle.cmliussss.net', region: 'Oracle', regionCode: 'Oracle', port: 443 },
+        { domain: 'ProxyIP.DigitalOcean.CMLiussss.net', region: 'DigitalOcean', regionCode: 'DigitalOcean', port: 443 },
+        { domain: 'ProxyIP.Vultr.CMLiussss.net', region: 'Vultr', regionCode: 'Vultr', port: 443 },
+        { domain: 'ProxyIP.Multacom.CMLiussss.net', region: 'Multacom', regionCode: 'Multacom', port: 443 }
     ];
+
+    // ★ CMI 修復：在 fetch 開始時一次性預解析 backupIPs，之後用 IP 不需 DNS
+    let _resolvedBackupIPs = null;
+    async function resolveBackupIPsOnce() {
+        if (_resolvedBackupIPs) return _resolvedBackupIPs;
+        const results = await Promise.allSettled(
+            backupIPs.map(async (bp) => {
+                try {
+                    const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(bp.domain)}&type=A`,
+                        { headers: { Accept: 'application/dns-json' }, cf: { cacheTtl: 300 } });
+                    if (!res.ok) throw new Error('DoH failed');
+                    const json = await res.json();
+                    const a = json.Answer?.find(r => r.type === 1);
+                    return { ...bp, resolvedIP: a?.data || bp.domain, address: a?.data || bp.domain };
+                } catch {
+                    return { ...bp, resolvedIP: bp.domain, address: bp.domain };
+                }
+            })
+        );
+        _resolvedBackupIPs = results.map(r => r.status === 'fulfilled' ? r.value : null).filter(Boolean);
+        return _resolvedBackupIPs;
+    }
 
     const directDomains = [
         { name: "cloudflare.182682.xyz", domain: "cloudflare.182682.xyz" }, { name: "speed.marisalnc.com", domain: "speed.marisalnc.com" },
@@ -538,23 +565,19 @@ Sitemap: https://example.com/sitemap.xml
     }
 
     async function getBestBackupIP(workerRegion = '', useRegionMatching = enableRegionMatching) {
-        if (backupIPs.length === 0) {
-            return null;
-        }
+        // ★ CMI 修復：使用預解析後的 backupIPs（一次性 DNS 解析，之後全部用 IP）
+        const resolved = await resolveBackupIPsOnce();
+        if (resolved.length === 0) return null;
 
-        // ★ CMI 修復：統一 address 欄位（IP），不用 domain
-    const availableIPs = backupIPs.map(ip => ({ ...ip, address: ip.ip || ip.domain, available: true }));
+        // ★ 統一 address 欄位
+        const availableIPs = resolved.map(ip => ({ ...ip, address: ip.resolvedIP || ip.address, available: true }));
 
         if (useRegionMatching && workerRegion) {
             const sortedIPs = getSmartRegionSelection(workerRegion, availableIPs, useRegionMatching);
-            if (sortedIPs.length > 0) {
-                const selectedIP = sortedIPs[0];
-                return selectedIP;
-            }
+            if (sortedIPs.length > 0) return sortedIPs[0];
         }
 
-        const selectedIP = availableIPs[0];
-        return selectedIP;
+        return availableIPs[0];
     }
 
     function getNearbyRegions(region) {
@@ -711,6 +734,7 @@ Sitemap: https://example.com/sitemap.xml
                 const envFallback = getConfigValue('p', env.p || env.P);
                 if (envFallback) {
                     fallbackAddress = envFallback.trim();
+                    _resolvedBackupIPs = null;  // ★ CMI 修復：每次 fetch 重置 DNS 解析緩存
                 }
 
                 socks5Config = getConfigValue('s', env.s || env.S) || socks5Config;
