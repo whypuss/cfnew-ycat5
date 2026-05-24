@@ -191,29 +191,57 @@ Sitemap: https://example.com/sitemap.xml
 
     // ★ CMI 修復：用 Google DoH 預解析 directDomains，客戶端直連 IP
     async function resolveDomainsToIPs(domains) {
+        const DOH_PROVIDERS = [
+            {
+                name: 'cloudflare',
+                buildUrl: (domain) => `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`,
+            },
+            {
+                name: 'google',
+                buildUrl: (domain) => `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=A`,
+            },
+            {
+                name: 'quad9',
+                buildUrl: (domain) => `https://dns.quad9.net/dns-query?name=${encodeURIComponent(domain)}&type=A`,
+            },
+        ];
+
         const results = await Promise.allSettled(
             domains.map(async (d) => {
-                try {
-                    const res = await fetch(
-                        `https://dns.google/resolve?name=${encodeURIComponent(d.domain)}&type=A`,
-                        { headers: { Accept: 'application/dns-json' }, cf: { cacheTtl: 300 } }
-                    );
-                    if (!res.ok) throw new Error('DoH failed');
-                    const json = await res.json();
-                    const aRecord = json.Answer?.find(r => r.type === 1);
-                    const resolvedIP = aRecord?.data;
-                    return {
-                        ip: resolvedIP || d.domain,
-                        originalDomain: d.domain,
-                        isp: d.name || d.domain,
-                        resolved: !!resolvedIP,
-                    };
-                } catch {
-                    return { ip: d.domain, originalDomain: d.domain, isp: d.name || d.domain, resolved: false };
+                for (const provider of DOH_PROVIDERS) {
+                    try {
+                        const res = await fetch(provider.buildUrl(d.domain), {
+                            headers: { Accept: 'application/dns-json' },
+                            cf: { cacheTtl: 300 },
+                        });
+                        if (!res.ok) continue;
+                        const json = await res.json();
+                        const aRecord = json.Answer?.find(r => r.type === 1);
+                        if (aRecord?.data) {
+                            return {
+                                ip: aRecord.data,
+                                originalDomain: d.domain,
+                                isp: d.name || d.domain,
+                                resolved: true,
+                                resolvedBy: provider.name,
+                            };
+                        }
+                    } catch {
+                        continue;
+                    }
                 }
+                return {
+                    ip: null,
+                    originalDomain: d.domain,
+                    isp: d.name || d.domain,
+                    resolved: false,
+                };
             })
         );
-        return results.map(r => r.status === 'fulfilled' ? r.value : null).filter(Boolean);
+
+        return results
+            .map(r => (r.status === 'fulfilled' ? r.value : null))
+            .filter(Boolean);
     }
 
     // P1-2: Source weight table for node reputation system
@@ -679,6 +707,50 @@ Sitemap: https://example.com/sitemap.xml
                         return new Response(faviconData, {
                             status: 200,
                             headers: { 'Content-Type': 'image/x-icon' }
+                        });
+                    }
+
+                    // Debug endpoint: test DoH resolution from Worker
+                    if (pathname === '/debug-doh') {
+                        const testDomain = reqUrl.searchParams.get('domain') || 'bestcf.030101.xyz';
+                        const providers = [
+                            { name: 'cloudflare-dns.com', url: `https://cloudflare-dns.com/dns-query?name=${testDomain}&type=A` },
+                            { name: 'dns.google', url: `https://dns.google/resolve?name=${testDomain}&type=A` },
+                            { name: 'dns.quad9.net', url: `https://dns.quad9.net/dns-query?name=${testDomain}&type=A` },
+                        ];
+                        const results = {};
+                        for (const p of providers) {
+                            try {
+                                const res = await fetch(p.url, { headers: { Accept: 'application/dns-json' } });
+                                const json = await res.json();
+                                const ip = json.Answer?.find(r => r.type === 1)?.data;
+                                results[p.name] = ip || 'no A record';
+                            } catch (e) {
+                                results[p.name] = 'ERROR: ' + e.message;
+                            }
+                        }
+                        return new Response(JSON.stringify({ query: testDomain, results }, null, 2), {
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                    }
+
+                    // Debug endpoint: test resolveDomainsToIPs output directly
+                    if (pathname === '/debug-resolve-domains') {
+                        await initKVStore(env);
+                        const resolved = await resolveDomainsToIPs(directDomains);
+                        const summary = resolved.map(d => ({
+                            domain: d.originalDomain,
+                            ip: d.ip,
+                            resolved: d.resolved,
+                            isp: d.isp,
+                            resolvedBy: d.resolvedBy || 'none'
+                        }));
+                        return new Response(JSON.stringify({
+                            total: resolved.length,
+                            resolvedCount: resolved.filter(d => d.resolved === true).length,
+                            items: summary
+                        }, null, 2), {
+                            headers: { 'Content-Type': 'application/json' }
                         });
                     }
 
@@ -2602,8 +2674,11 @@ Sitemap: https://example.com/sitemap.xml
 
         // P1-2: Enhanced addNodesFromList with source tagging and quarantine filtering
         async function addNodesFromList(list, source) {
+            console.log('[DEBUG addNodesFromList] source=' + source + ', list.length=' + list.length + ', ev=' + ev + ', et=' + et + ', ex=' + ex);
             if (ev) {
-                finalLinks.push(...generateLinksFromSource(list, user, workerDomain, echConfig, false, source));
+                const generated = generateLinksFromSource(list, user, workerDomain, echConfig, false, source);
+                console.log('[DEBUG addNodesFromList] generated ' + generated.length + ' VLESS links for source=' + source);
+                finalLinks.push(...generated);
             }
             if (et) {
                 finalLinks.push(...await generateTrojanLinksFromSource(list, user, workerDomain, echConfig, false, source));
@@ -2678,10 +2753,13 @@ Sitemap: https://example.com/sitemap.xml
             }
         } else {
             if (epd) {
-            // ★ CMI 修復：directDomains 改用 resolveDomainsToIPs 解析為真實 IP
-            const resolvedDomains = await resolveDomainsToIPs(directDomains);
-            const domainList = resolvedDomains;
-                await addNodesFromList(domainList, 'direct-domains');
+                const resolvedDomains = await resolveDomainsToIPs(directDomains);
+                const validDomains = resolvedDomains.filter(d => d.resolved === true);
+                console.log('[DEBUG epd handler] resolvedDomains total=' + resolvedDomains.length + ', validDomains (resolved=true)=' + validDomains.length);
+                if (validDomains.length > 0) {
+                    console.log('[DEBUG epd handler] first validDomain: ' + JSON.stringify(validDomains[0]));
+                    await addNodesFromList(validDomains, 'direct-domains');
+                }
             }
 
             if (epi) {
@@ -2738,7 +2816,9 @@ Sitemap: https://example.com/sitemap.xml
         }
 
         // P1-2: Apply quarantine filtering before generating subscription
+        const finalLinksBeforeFilter = finalLinks.length;
         await filterQuarantinedNodes();
+        console.log('[DEBUG finalLinks] before filterQuarantinedNodes=' + finalLinksBeforeFilter + ', after=' + finalLinks.length);
 
         if (finalLinks.length === 0) {
             const errorRemark = "所有节点获取失败";
@@ -2814,20 +2894,26 @@ Sitemap: https://example.com/sitemap.xml
         };
 
         // 添加ECH状态到响应头
-        if (enableECH) {
-            responseHeaders['X-ECH-Status'] = 'ENABLED';
-            if (echConfig) {
-                responseHeaders['X-ECH-Config-Length'] = String(echConfig.length);
+if (enableECH) {
+                responseHeaders['X-ECH-Status'] = 'ENABLED';
+                if (echConfig) {
+                    responseHeaders['X-ECH-Config-Length'] = String(echConfig.length);
+                }
             }
+            // Debug: count node types in fresh response
+            const selfTestLinks = finalLinks.filter(l => typeof l === 'object' && l.source === 'self-test').length;
+            const directLinks = finalLinks.filter(l => typeof l === 'object' && l.source === 'direct-domains').length;
+            const yxLinks = finalLinks.filter(l => typeof l === 'object' && l.ip && l.source !== 'self-test' && l.source !== 'direct-domains').length;
+            responseHeaders['X-Node-Debug'] = `total=${finalLinks.length},self=${selfTestLinks},direct=${directLinks},yx=${yxLinks}`;
+
+            return new Response(subscriptionContent, {
+                headers: responseHeaders,
+            });
         }
 
-        return new Response(subscriptionContent, {
-            headers: responseHeaders,
-        });
-    }
-
-    // P1-2: Enhanced generateLinksFromSource with source tagging, returns objects with link metadata
-    function generateLinksFromSource(list, user, workerDomain, echConfig = null, skipNumbering = false, source = 'unknown') {
+        // P1-2: Enhanced generateLinksFromSource with source tagging, returns objects with link metadata
+        function generateLinksFromSource(list, user, workerDomain, echConfig = null, skipNumbering = false, source = 'unknown') {
+        console.log('[DEBUG generateLinksFromSource] called with list.length=' + list.length + ', source=' + source);
         const CF_HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
         const CF_HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 
@@ -2841,6 +2927,7 @@ Sitemap: https://example.com/sitemap.xml
         const { namer, setSkipNumbering } = createNodeNamer(skipNumbering);
 
         for (const item of list) {
+            console.log('[DEBUG generateLinksFromSource] item.ip=' + item.ip + ', item.isp=' + item.isp + ', source=' + source);
             let nodeNameBase = item.isp.replace(/\s/g, '_');
             if (item.colo && item.colo.trim()) {
                 nodeNameBase = `${nodeNameBase}-${item.colo.trim()}`;
