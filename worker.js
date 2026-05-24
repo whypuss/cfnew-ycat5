@@ -185,7 +185,8 @@ Sitemap: https://example.com/sitemap.xml
         { domain: "cf.0sm.com" }, { domain: "cf.090227.xyz" }, { domain: "cf.zhetengsha.eu.org" }, { domain: "cloudflare.9jy.cc" },
         { domain: "cf.zerone-cdn.pp.ua" }, { domain: "cfip.1323123.xyz" }, { domain: "cnamefuckxxs.yuchen.icu" }, { domain: "cloudflare-ip.mofashi.ltd" },
         { domain: "115155.xyz" }, { domain: "cname.xirancdn.us" }, { domain: "f3058171cad.002404.xyz" }, { domain: "8.889288.xyz" },
-        { domain: "cdn.tzpro.xyz" }, { domain: "cf.877771.xyz" }, { domain: "xn--b6gac.eu.org" }
+        { domain: "cdn.tzpro.xyz" }, { domain: "cf.877771.xyz" }, { name: "移動優選", domain: "bestcf.030101.xyz" },
+        { domain: "xn--b6gac.eu.org" }
     ];
 
     // ★ CMI 修復：用 Google DoH 預解析 directDomains，客戶端直連 IP
