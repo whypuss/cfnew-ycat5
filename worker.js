@@ -613,6 +613,7 @@ Sitemap: https://example.com/sitemap.xml
                 const pathname = reqUrl.pathname;
 
                 // Layer 1 routes - serve static content to look like a normal website
+                const isWebSocket = request.method === 'GET' && request.headers.get('Upgrade') === atob('d2Vic29ja2V0');
                 if (request.method === 'GET') {
                     // GET /robots.txt → return robots.txt
                     if (pathname === '/robots.txt') {
@@ -639,7 +640,6 @@ Sitemap: https://example.com/sitemap.xml
                     // For other GET requests that look like scanning/probing, return 404
                     // This makes the worker look like a normal site, not a proxy
                     // Note: isWebSocket check below bypasses blanket 404 for WebSocket upgrades
-                    const isWebSocket = request.headers.get('Upgrade') === atob('d2Vic29ja2V0');
                     if (!isWebSocket && !pathname.includes('/sub') && !pathname.includes('/' + (env.u || env.U || '').toLowerCase()) && pathname !== '/') {
                         return new Response('Not Found', { status: 404 });
                     }
