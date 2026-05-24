@@ -56,7 +56,7 @@
 **Workers 部署：**
 1. 登錄 [Cloudflare 控制台](https://dash.cloudflare.com/)
 2. 進入 **Workers 和 Pages** → 創建 Worker
-3. 點擊 **設置** → **運行時** → **兼容性日期** → 選擇 `2025-01-01`
+3. 點擊 **設置** → **運行時** → **兼容性日期** → 選擇 `2026-01-20`
 4. 粘貼 `worker.js` 的內容作為 Worker 代碼
 
 **Pages 部署：**
