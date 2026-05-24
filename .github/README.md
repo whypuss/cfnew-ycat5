@@ -1,17 +1,24 @@
-# CFnew - Cloudflare Workers 订阅转换器
+# cfnew-cat v1.0
 
-> ⚠️ **部署后请将兼容日期设置为 `2026-01-20`**
+> ⚠️ **部署后请将兼容日期设置为 `2025-01-01`**
+>
+> ⚠️ **KV Namespace 已迁移，使用新的 Namespace ID（见 wrangler.toml）**
 
 **Workers 部署：**
 1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com/)
 2. 进入 **Workers 和 Pages** → 创建 Worker
-3. 点击 **设置** → **运行时** → **兼容性日期** → 选择 `2026-01-20`
-4. 粘贴 `obfuscated.js` 的内容作为 Worker 代码
+3. 点击 **设置** → **运行时** → **兼容性日期** → 选择 `2025-01-01`
+4. 粘贴 `worker.js` 的内容作为 Worker 代码
 
 **Pages 部署：**
 1. 进入 **Workers 和 Pages** → 创建 Pages 项目
-2. 上传 `worker.js` 文件
-3. 设置兼容性日期 `2026-01-20`
+2. 上传 `static` 目录
+3. 设置兼容性日期 `2025-01-01`
+
+**KV 配置：**
+1. 在 Workers 页面左侧找到 **KV** → 创建命名空间（名称随意，如 `cfnew-cat`）
+2. 复制新的 Namespace ID 到 `wrangler.toml`
+3. 写入配置 key: `c`，value 为 JSON 配置
 
 ## 主要功能
 
