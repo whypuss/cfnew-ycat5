@@ -6,9 +6,7 @@
 
 ---
 
-## 版本进度（v1.0）
-
-### ✅ 已完成功能
+## ✅ 已完成功能
 
 **核心基础设施**
 - Route 随机化（build.js，ROUTE_SEED_VERSION=1）
@@ -36,20 +34,6 @@
 - 移除 Matrix/FX/HUD 动画
 - `/api/config` — KV storage endpoint
 - `/api/preferred-ips` — IP lookup endpoint
-
-### ⚠️ 缺失 / 待实现
-
-| 功能 | 优先级 | 状态 |
-|------|--------|------|
-| `/refresh` endpoint | P0 | ⚠️ 缺失 |
-| `?refresh=1` query param | P0 | ⚠️ 缺失 |
-| Config source tracing（`__trace`） | Stable-2 | ⚠️ 缺失 |
-| Route registry centralization（`matchRoute`） | Stable-3 | ⚠️ 缺失 |
-| Subscription MIME 多态 | P2-1 | ⏸️ 延期 |
-| Query param polymorphism | P2-2 | ⏸️ 延期 |
-| Rate limit（同 IP 30s） | P2-3 | ⏸️ 延期 |
-| WebSocket connect backoff | P2-3 | ⏸️ 延期 |
-| Fail fast（TCP 3s timeout） | P2-3 | ⏸️ 延期 |
 
 ---
 
