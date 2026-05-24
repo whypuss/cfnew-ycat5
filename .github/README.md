@@ -1,22 +1,20 @@
-# cfnew-cat v1.01
+# cfnew-cat v1.02
 
-> ⚠️ **部署后请将兼容日期设置为 `2025-01-01`**
->
-> ⚠️ **KV Namespace 已迁移，使用新的 Namespace ID（见 wrangler.toml）**
+> ⚠️ **部署后请将兼容日期设置为 `2026-01-20`**
 
 ---
 
-## 🐱 v1.01 更新内容（2025-05）
+## 🐱 v1.02 更新内容（2025-05）
 
-### DNS 迴圈修復
-- **backupIPs 硬編碼**：移除所有 `ProxyIP.*.CMLiussss.net` 域名，改用 Cloudflare Anycast IP（172.66.x.x / 172.64.x.x / 104.16~24.x.x），杜絕 Worker 內部 DNS 解析迴圈
-- **getBestBackupIP**：統一使用 `.address`（IP）而非 `.domain`（域名），全鏈路無需 DNS 查詢
-- **resolveDomainsToIPs**：新增 Google DoH (`dns.google`) 預解析 directDomains，客戶端直連真實 IP，徹底切斷回圈
-- **Math.random → ipRng()**：所有隨機操作改用 seeded RNG，確保 deterministic build 穩定
+### 修覆
+- **backupHost 漏網**：6 處 `bestBackupIP.domain` 全部改為 `.address`，彻底切断域名依赖
+- **Quarantine 繞過**：`source === 'direct-domains'` 的節點跳過 quarantine 檢查
+- **Quarantine Key**：从 IP 級別改為 IP+Port 複合 key，避免同一 IP 不同端口被錯誤隔離
 
-### 其他優化
-- `forwardTCP` retryConnection：fallback 階段直接使用 `.address`（硬編碼 IP），不再嘗試解析域名
-- **語法校驗**：所有修復通過 node --check
+### v1.01 DNS 迴圈修復（保留）
+- **backupIPs 硬編碼**：移除所有 `ProxyIP.*.CMLiussss.net` 域名，改用 Cloudflare Anycast IP
+- **resolveDomainsToIPs**：Google DoH 預解析 directDomains，客戶端直連真實 IP
+- **`forwardTCP` retryConnection**：fallback 階段直接使用 `.address`
 
 ---
 
@@ -62,7 +60,7 @@
 **Pages 部署：**
 1. 進入 **Workers 和 Pages** → 創建 Pages 項目
 2. 上傳 `static` 目錄
-3. 設置兼容性日期 `2025-01-01`
+3. 設置兼容性日期 `2026-01-20`
 
 **KV 配置：**
 1. 在 Workers 頁面左側找到 **KV** → 創建命名空間（名稱隨意，如 `cfnew-cat`）
