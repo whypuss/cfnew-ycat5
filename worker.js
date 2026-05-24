@@ -2622,6 +2622,10 @@ Sitemap: https://example.com/sitemap.xml
                 if (typeof linkData !== 'object' || !linkData.ip) {
                     return true; // Keep string links or old format as-is
                 }
+                // Fix B: direct-domains 節點跳過 quarantine 檢查
+                if (linkData.source === 'direct-domains') {
+                    return true;
+                }
                 const quarantined = await isNodeQuarantined(linkData.ip, linkData.port);
                 return !quarantined;
             });
@@ -2649,8 +2653,8 @@ Sitemap: https://example.com/sitemap.xml
 
                     const bestBackupIP = await getBestBackupIP(currentWorkerRegion);
                     if (bestBackupIP) {
-                        fallbackAddress = bestBackupIP.domain + ':' + bestBackupIP.port;
-                        const backupList = [{ ip: bestBackupIP.domain, isp: 'ProxyIP-' + currentWorkerRegion }];
+                        fallbackAddress = bestBackupIP.address + ':' + bestBackupIP.port;
+                        const backupList = [{ ip: bestBackupIP.address, isp: 'ProxyIP-' + currentWorkerRegion }];
                         await addNodesFromList(backupList, 'CMLiussss');
                     } else {
                         const nativeList = [{ ip: workerDomain, isp: '原生地址' }];
@@ -2694,9 +2698,9 @@ Sitemap: https://example.com/sitemap.xml
                     
                     const bestBackupIP = await getBestBackupIP(currentWorkerRegion);
                     if (bestBackupIP) {
-                        fallbackAddress = bestBackupIP.domain + ':' + bestBackupIP.port;
+                        fallbackAddress = bestBackupIP.address + ':' + bestBackupIP.port;
                         
-                        const backupList = [{ ip: bestBackupIP.domain, isp: 'ProxyIP-' + currentWorkerRegion }];
+                        const backupList = [{ ip: bestBackupIP.address, isp: 'ProxyIP-' + currentWorkerRegion }];
                             await addNodesFromList(backupList, 'CMLiussss');
                         }
                     }
@@ -2724,9 +2728,9 @@ Sitemap: https://example.com/sitemap.xml
 
                 const bestBackupIP = await getBestBackupIP(currentWorkerRegion);
                 if (bestBackupIP) {
-                    fallbackAddress = bestBackupIP.domain + ':' + bestBackupIP.port;
+                    fallbackAddress = bestBackupIP.address + ':' + bestBackupIP.port;
                     
-                    const backupList = [{ ip: bestBackupIP.domain, isp: 'ProxyIP-' + currentWorkerRegion }];
+                    const backupList = [{ ip: bestBackupIP.address, isp: 'ProxyIP-' + currentWorkerRegion }];
                         await addNodesFromList(backupList);
                     }
                 }
@@ -3218,7 +3222,7 @@ Sitemap: https://example.com/sitemap.xml
                         backupPort = parsed.port || portNum;
                     } else {
                         const bestBackupIP = await getBestBackupIP(effectiveRegion, effectiveRegionMatching);
-                        backupHost = bestBackupIP ? bestBackupIP.domain : host;
+                        backupHost = bestBackupIP ? bestBackupIP.address : host;
                         backupPort = bestBackupIP ? bestBackupIP.port : portNum;
                     }
 
@@ -3239,7 +3243,7 @@ Sitemap: https://example.com/sitemap.xml
                     backupPort = parsed.port || portNum;
                 } else {
                     const bestBackupIP = await getBestBackupIP(effectiveRegion, effectiveRegionMatching);
-                    backupHost = bestBackupIP ? bestBackupIP.domain : host;
+                    backupHost = bestBackupIP ? bestBackupIP.address : host;
                     backupPort = bestBackupIP ? bestBackupIP.port : portNum;
                 }
 
