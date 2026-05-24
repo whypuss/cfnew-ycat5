@@ -129,29 +129,27 @@ Sitemap: https://example.com/sitemap.xml
         'Multacom': ['Multacom', 'Multacom']
     };
 
+    // ★ CMI 修復：backupIPs 硬編碼 CF IP，避免 DNS 迴圈
+    // 移動用戶對這些 IP 段相對友好
     let backupIPs = [
-        { domain: 'ProxyIP.HK.CMLiussss.net', region: 'HK', regionCode: 'HK', port: 443 },
-        { domain: 'ProxyIP.US.CMLiussss.net', region: 'US', regionCode: 'US', port: 443 },
-        { domain: 'ProxyIP.SG.CMLiussss.net', region: 'SG', regionCode: 'SG', port: 443 },
-        { domain: 'ProxyIP.JP.CMLiussss.net', region: 'JP', regionCode: 'JP', port: 443 },
-        { domain: 'ProxyIP.KR.CMLiussss.net', region: 'KR', regionCode: 'KR', port: 443 },
-        { domain: 'ProxyIP.DE.CMLiussss.net', region: 'DE', regionCode: 'DE', port: 443 },
-        { domain: 'ProxyIP.SE.CMLiussss.net', region: 'SE', regionCode: 'SE', port: 443 },
-        { domain: 'ProxyIP.NL.CMLiussss.net', region: 'NL', regionCode: 'NL', port: 443 },
-        { domain: 'ProxyIP.FI.CMLiussss.net', region: 'FI', regionCode: 'FI', port: 443 },
-        { domain: 'ProxyIP.GB.CMLiussss.net', region: 'GB', regionCode: 'GB', port: 443 },
-        { domain: 'ProxyIP.AU.CMLiussss.net', region: 'AU', regionCode: 'AU', port: 443 },
-        { domain: 'ProxyIP.BR.CMLiussss.net', region: 'BR', regionCode: 'BR', port: 443 },
-        { domain: 'ProxyIP.CA.CMLiussss.net', region: 'CA', regionCode: 'CA', port: 443 },
-        { domain: 'ProxyIP.FR.CMLiussss.net', region: 'FR', regionCode: 'FR', port: 443 },
-        { domain: 'ProxyIP.CH.CMLiussss.net', region: 'CH', regionCode: 'CH', port: 443 },
-        { domain: 'ProxyIP.RU.CMLiussss.net', region: 'RU', regionCode: 'RU', port: 443 },
-        { domain: 'ProxyIP.IN.CMLiussss.net', region: 'IN', regionCode: 'IN', port: 443 },
-        { domain: 'ProxyIP.TW.CMLiussss.net', region: 'TW', regionCode: 'TW', port: 443 },
-        { domain: 'ProxyIP.Oracle.cmliussss.net', region: 'Oracle', regionCode: 'Oracle', port: 443 },
-        { domain: 'ProxyIP.DigitalOcean.CMLiussss.net', region: 'DigitalOcean', regionCode: 'DigitalOcean', port: 443 },
-        { domain: 'ProxyIP.Vultr.CMLiussss.net', region: 'Vultr', regionCode: 'Vultr', port: 443 },
-        { domain: 'ProxyIP.Multacom.CMLiussss.net', region: 'Multacom', regionCode: 'Multacom', port: 443 }
+        // HK — 移動 CMI 出口最近的 PoP
+        { ip: '172.65.0.1', region: 'HK', regionCode: 'HK', port: 443 },
+        { ip: '104.18.0.1', region: 'HK', regionCode: 'HK', port: 443 },
+        // US — 移動繞美，備用
+        { ip: '172.66.0.1', region: 'US', regionCode: 'US', port: 443 },
+        { ip: '104.19.0.1', region: 'US', regionCode: 'US', port: 443 },
+        // SG — 東南亞移動友好
+        { ip: '172.64.0.1', region: 'SG', regionCode: 'SG', port: 443 },
+        { ip: '104.16.0.1', region: 'SG', regionCode: 'SG', port: 443 },
+        // JP — 移動較友好
+        { ip: '104.19.128.1', region: 'JP', regionCode: 'JP', port: 443 },
+        { ip: '104.18.128.1', region: 'JP', regionCode: 'JP', port: 443 },
+        // KR
+        { ip: '172.65.128.1', region: 'KR', regionCode: 'KR', port: 443 },
+        { ip: '104.20.128.1', region: 'KR', regionCode: 'KR', port: 443 },
+        // DE/歐洲
+        { ip: '172.66.128.1', region: 'DE', regionCode: 'DE', port: 443 },
+        { ip: '104.21.128.1', region: 'DE', regionCode: 'DE', port: 443 },
     ];
 
     const directDomains = [
@@ -162,6 +160,33 @@ Sitemap: https://example.com/sitemap.xml
         { domain: "115155.xyz" }, { domain: "cname.xirancdn.us" }, { domain: "f3058171cad.002404.xyz" }, { domain: "8.889288.xyz" },
         { domain: "cdn.tzpro.xyz" }, { domain: "cf.877771.xyz" }, { domain: "xn--b6gac.eu.org" }
     ];
+
+    // ★ CMI 修復：用 Google DoH 預解析 directDomains，客戶端直連 IP
+    async function resolveDomainsToIPs(domains) {
+        const results = await Promise.allSettled(
+            domains.map(async (d) => {
+                try {
+                    const res = await fetch(
+                        `https://dns.google/resolve?name=${encodeURIComponent(d.domain)}&type=A`,
+                        { headers: { Accept: 'application/dns-json' }, cf: { cacheTtl: 300 } }
+                    );
+                    if (!res.ok) throw new Error('DoH failed');
+                    const json = await res.json();
+                    const aRecord = json.Answer?.find(r => r.type === 1);
+                    const resolvedIP = aRecord?.data;
+                    return {
+                        ip: resolvedIP || d.domain,
+                        originalDomain: d.domain,
+                        isp: d.name || d.domain,
+                        resolved: !!resolvedIP,
+                    };
+                } catch {
+                    return { ip: d.domain, originalDomain: d.domain, isp: d.name || d.domain, resolved: false };
+                }
+            })
+        );
+        return results.map(r => r.status === 'fulfilled' ? r.value : null).filter(Boolean);
+    }
 
     // P1-2: Source weight table for node reputation system
     const SOURCE_WEIGHTS = {
@@ -517,7 +542,8 @@ Sitemap: https://example.com/sitemap.xml
             return null;
         }
 
-        const availableIPs = backupIPs.map(ip => ({ ...ip, available: true }));
+        // ★ CMI 修復：統一 address 欄位（IP），不用 domain
+    const availableIPs = backupIPs.map(ip => ({ ...ip, address: ip.ip || ip.domain, available: true }));
 
         if (useRegionMatching && workerRegion) {
             const sortedIPs = getSmartRegionSelection(workerRegion, availableIPs, useRegionMatching);
@@ -2623,7 +2649,9 @@ Sitemap: https://example.com/sitemap.xml
             }
         } else {
             if (epd) {
-            const domainList = directDomains.map(d => ({ ip: d.domain, isp: d.name || d.domain }));
+            // ★ CMI 修復：directDomains 改用 resolveDomainsToIPs 解析為真實 IP
+            const resolvedDomains = await resolveDomainsToIPs(directDomains);
+            const domainList = resolvedDomains;
                 await addNodesFromList(domainList, 'direct-domains');
             }
 
@@ -2774,7 +2802,8 @@ Sitemap: https://example.com/sitemap.xml
         const CF_HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095];
         const CF_HTTPS_PORTS = [443, 2053, 2083, 2087, 2096, 8443];
 
-        const defaultHttpsPorts = [443];
+        // ★ CMI 修復：多端口，移動對 443 封鎖嚴重，試其他端口
+        const defaultHttpsPorts = [443, 2053, 2083, 2087, 2096, 8443];
         const defaultHttpPorts = disableNonTLS ? [] : [80];
         const links = [];
         const wsPath = '/?ed=2048';
