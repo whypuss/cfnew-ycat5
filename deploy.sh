@@ -21,7 +21,7 @@ if ! grep -q '1d8d85c982a141ada33098ff80cee3bc' wrangler.toml; then
 fi
 
 # 檢查 3：確認係 cfnew-ycat（定製 UI）
-if ! grep -q '訂閱中心' worker.js; then
+if ! grep -q '订阅中心' worker.js; then
     echo "❌ 唔係 cfnew-ycat 定製 UI，停止 deploy"
     exit 1
 fi

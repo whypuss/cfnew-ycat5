@@ -762,7 +762,7 @@ Sitemap: https://example.com/sitemap.xml
                     // For other GET requests that look like scanning/probing, return 404
                     // This makes the worker look like a normal site, not a proxy
                     // Note: isWebSocket check below bypasses blanket 404 for WebSocket upgrades
-                    if (!isWebSocket && !pathname.replace(/[?#].*/, '').includes('/sub') && !pathname.replace(/[?#].*/, '').includes('/' + (env.u || env.U || '').toLowerCase()) && pathname !== '/') {
+                    if (!isWebSocket && !pathname.replace(/[?#].*/, '').includes('/sub') && !pathname.replace(/[?#].*/, '').includes('/' + (env.u || env.U || '').toLowerCase()) && !pathname.replace(/[?#].*/, '').includes('/' + (env.d || env.D || '').toLowerCase()) && pathname !== '/') {
                         return new Response('Not Found', { status: 404 });
                     }
                 }
@@ -823,7 +823,7 @@ Sitemap: https://example.com/sitemap.xml
                 const customPreferred = getConfigValue('yx', env.yx || env.YX);
                 if (customPreferred) {
                     try {
-                        const preferredList = customPreferred.split(',').map(item => item.trim()).filter(item => item);
+                        const preferredList = customPreferred.split(/[\n,]/).map(item => item.trim()).filter(item => item);
                         customPreferredIPs = [];
                         customPreferredDomains = [];
 
@@ -951,7 +951,7 @@ Sitemap: https://example.com/sitemap.xml
 
                 piu = getConfigValue('yxURL', env.yxURL || env.YXURL) || '';
 
-                cp = getConfigValue('d', env.d || env.D) || '';
+                cp = env.d || env.D || '';
 
                 const url = new URL(request.url);
 
