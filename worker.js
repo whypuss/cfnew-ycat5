@@ -1529,7 +1529,7 @@ Sitemap: https://example.com/sitemap.xml
                     }
                 } else {
                     
-                    if (url.pathname.length > 1 && url.pathname !== '/' && !url.pathname.includes('/sub')) {
+                    if (url.pathname.length > 1 && url.pathname.replace(/[?#].*/, '') !== '/' && !url.pathname.replace(/[?#].*/, '').includes('/sub')) {
                         const user = url.pathname.replace(/\/$/, '').substring(1);
                         if (isValidFormat(user)) {
                             if (user === at) {
