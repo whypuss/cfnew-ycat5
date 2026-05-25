@@ -869,13 +869,8 @@ Sitemap: https://example.com/sitemap.xml
                     enableSocksDowngrade = true;
                 }
 
-                const dkbyControl = getConfigValue('dkby', env.dkby || env.DKBY);
-                if (dkbyControl && dkbyControl.toLowerCase() === 'yes') {
-                    disableNonTLS = true;
-                }
-
-                const yxbyControl = env.yxby || env.YXBY;
-                if (yxbyControl && yxbyControl.toLowerCase() === 'yes') {
+                const yxbyControl = getConfigValue('yxby', env.yxby || env.YXBY);
+                if (yxbyControl && yxbyControl.toLowerCase() !== 'yes') {
                     disablePreferred = true;
                 }
 
@@ -938,11 +933,6 @@ Sitemap: https://example.com/sitemap.xml
                 // ECH需要TLS才能工作，所以必须禁用非TLS节点
                 if (enableECH) {
                     disableNonTLS = true;
-                    // 检查 KV 中是否有 dkby: yes，没有就直接写入
-                    const currentDkby = getConfigValue('dkby', '');
-                    if (currentDkby !== 'yes') {
-                        await setConfigValue('dkby', 'yes');
-                    }
                 }
 
                 if (!ev && !et && !ex) {
@@ -2634,6 +2624,8 @@ Sitemap: https://example.com/sitemap.xml
         if (!url) url = new URL(request.url);
 
         const finalLinks = [];
+                        await updateCustomPreferredFromYx();
+        console.log('[DEBUG after update] customPreferredIPs.length=' + customPreferredIPs.length + ', customPreferredDomains.length=' + customPreferredDomains.length);
         const workerDomain = url.hostname;
         const target = url.searchParams.get('target') || 'base64';
 
@@ -2741,8 +2733,7 @@ Sitemap: https://example.com/sitemap.xml
 
         const hasCustomPreferred = customPreferredIPs.length > 0 || customPreferredDomains.length > 0;
 
-        if (disablePreferred) {
-        } else if (hasCustomPreferred) {
+        if (!disablePreferred && hasCustomPreferred) {
             if (customPreferredIPs.length > 0 && epi) {
                 await addNodesFromList(customPreferredIPs, 'self-test');
             }
@@ -2751,6 +2742,7 @@ Sitemap: https://example.com/sitemap.xml
                 const customDomainList = customPreferredDomains.map(d => ({ ip: d.domain, isp: d.name || d.domain }));
                 await addNodesFromList(customDomainList, 'self-test');
             }
+        } else if (disablePreferred) {
         } else {
             if (epd) {
                 const resolvedDomains = await resolveDomainsToIPs(directDomains);
@@ -3596,7 +3588,7 @@ if (enableECH) {
                 allowAPIManagement: '允许API管理 (ae):',
                 regionMatching: '地区匹配 (rm):',
                 downgradeControl: '降级控制 (qj):',
-                tlsControl: 'TLS控制 (dkby):',
+                tlsControl: '優選控制 (yxby):',
                 preferredControl: '优选控制 (yxby):',
                 saveAdvanced: '保存高级配置',
                 loading: '加载中...',
@@ -3632,9 +3624,9 @@ if (enableECH) {
                 tlsControlDefault: '默认（保留所有节点）',
                 tlsControlYes: '仅TLS节点',
                 tlsControlHint: '设置为"仅TLS节点"时只生成带TLS的节点，不生成非TLS节点（如80端口）',
-                preferredControlDefault: '默认（启用优选）',
-                preferredControlYes: '关闭优选',
-                preferredControlHint: '设置为"关闭优选"时只使用原生地址，不生成优选IP和域名节点',
+                preferredControlDefault: '默认（使用KV优选）',
+                preferredControlYes: '停用优选（使用wetest）',
+                preferredControlHint: '设置为"停用优选"时跳过 KV yx，直接使用 wetest 流程',
                 regionNames: {
                     HK: '🇭🇰 香港', US: '🇺🇸 美国', SG: '🇸🇬 新加坡', JP: '🇯🇵 日本',
                     KR: '🇰🇷 韩国', DE: '🇩🇪 德国', SE: '🇸🇪 瑞典', NL: '🇳🇱 荷兰',
@@ -3746,7 +3738,7 @@ if (enableECH) {
                 allowAPIManagement: 'اجازه مدیریت API (ae):',
                 regionMatching: 'تطبیق منطقه (rm):',
                 downgradeControl: 'کنترل کاهش سطح (qj):',
-                tlsControl: 'کنترل TLS (dkby):',
+                tlsControl: 'کنترل ارجحیت (yxby):',
                 preferredControl: 'کنترل ترجیحی (yxby):',
                 saveAdvanced: 'ذخیره تنظیمات پیشرفته',
                 loading: 'در حال بارگذاری...',
@@ -3774,9 +3766,9 @@ if (enableECH) {
                 tlsControlDefault: 'پیش‌فرض (حفظ همه گره‌ها)',
                 tlsControlYes: 'فقط گره‌های TLS',
                 tlsControlHint: 'وقتی "فقط گره‌های TLS" تنظیم شود، فقط گره‌های با TLS تولید می‌شوند، گره‌های غیر TLS (مانند پورت 80) تولید نمی‌شوند',
-                preferredControlDefault: 'پیش‌فرض (فعال‌سازی ترجیح)',
-                preferredControlYes: 'بستن ترجیح',
-                preferredControlHint: 'وقتی "بستن ترجیح" تنظیم شود، فقط از آدرس اصلی استفاده می‌شود، گره‌های IP و دامنه ترجیحی تولید نمی‌شوند',
+                preferredControlDefault: 'پیش‌فرض (استفاده از KV ارجح)',
+                preferredControlYes: 'غیرفعال کردن ارجحیت (استفاده از wetest)',
+                preferredControlHint: 'تنظیم "غیرفعال کردن ارجحیت" باعث می‌شود از KV yx عبور کرده و مستقیماً از wetest استفاده شود',
                 regionNames: {
                     HK: '🇭🇰 هنگ کنگ', US: '🇺🇸 آمریکا', SG: '🇸🇬 سنگاپور', JP: '🇯🇵 ژاپن',
                     KR: '🇰🇷 کره جنوبی', DE: '🇩🇪 آلمان', SE: '🇸🇪 سوئد', NL: '🇳🇱 هلند',
@@ -7612,7 +7604,7 @@ if (enableECH) {
                 updateConfigVariables();
                 
                 if (newConfig.yx !== undefined) {
-                    updateCustomPreferredFromYx();
+                    await updateCustomPreferredFromYx();
                 }
 
                 return new Response(JSON.stringify({
@@ -7735,7 +7727,7 @@ if (enableECH) {
                 if (addedIPs.length > 0) {
                     const newYxValue = arrayToYx(pi);
                     await setConfigValue('yx', newYxValue);
-                    updateCustomPreferredFromYx();
+                    await updateCustomPreferredFromYx();
                 }
 
                 return new Response(JSON.stringify({
@@ -7761,7 +7753,7 @@ if (enableECH) {
                     const deletedCount = pi.length;
 
                     await setConfigValue('yx', '');
-                    updateCustomPreferredFromYx();
+                    await updateCustomPreferredFromYx();
 
                     return new Response(JSON.stringify({
                         success: true,
@@ -7806,7 +7798,7 @@ if (enableECH) {
 
                 const newYxValue = arrayToYx(filteredIPs);
                 await setConfigValue('yx', newYxValue);
-                updateCustomPreferredFromYx();
+                await updateCustomPreferredFromYx();
 
                 return new Response(JSON.stringify({
                     success: true,
@@ -7957,18 +7949,29 @@ if (enableECH) {
         }
 
         const yxbyControl = getConfigValue('yxby', '');
-        if (yxbyControl && yxbyControl.toLowerCase() === 'yes') {
+        if (yxbyControl && yxbyControl.toLowerCase() !== 'yes') {
             disablePreferred = true;
         } else {
             disablePreferred = false;
         }
     }
 
-    function updateCustomPreferredFromYx() {
-        const yxValue = getConfigValue('yx', '');
+    async function updateCustomPreferredFromYx() {
+        const yxbyVal = getConfigValue('yxby', '');
+        disablePreferred = !!(yxbyVal && yxbyVal.toLowerCase() !== 'yes');
+
+        let yxValue = getConfigValue('yx', '');
+        if (!yxValue) {
+            // 備用：直接讀 KV yx key
+            try {
+                yxValue = await kvStore.get('yx') || '';
+            } catch (_) {
+                yxValue = '';
+            }
+        }
         if (yxValue) {
             try {
-                const preferredList = yxValue.split(',').map(item => item.trim()).filter(item => item);
+                const preferredList = yxValue.split(/[\n,]/).map(item => item.trim()).filter(item => item);
                 customPreferredIPs = [];
                 customPreferredDomains = [];
 
@@ -8015,7 +8018,7 @@ if (enableECH) {
     function parseYxToArray(yxValue) {
         if (!yxValue || !yxValue.trim()) return [];
 
-        const items = yxValue.split(',').map(item => item.trim()).filter(item => item);
+        const items = yxValue.split(/[\n,]/).map(item => item.trim()).filter(item => item);
         const result = [];
 
         for (const item of items) {
@@ -8051,7 +8054,7 @@ if (enableECH) {
         return array.map(item => {
             const port = item.port || 443;
             return `${item.ip}:${port}#${item.name}`;
-        }).join(',');
+        }).join('\n');
     }
 
     function isValidDomain(domain) {
