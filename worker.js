@@ -762,7 +762,7 @@ Sitemap: https://example.com/sitemap.xml
                     // For other GET requests that look like scanning/probing, return 404
                     // This makes the worker look like a normal site, not a proxy
                     // Note: isWebSocket check below bypasses blanket 404 for WebSocket upgrades
-                    if (!isWebSocket && !pathname.includes('/sub') && !pathname.includes('/' + (env.u || env.U || '').toLowerCase()) && pathname !== '/') {
+                    if (!isWebSocket && !pathname.replace(/[?#].*/, '').includes('/sub') && !pathname.replace(/[?#].*/, '').includes('/' + (env.u || env.U || '').toLowerCase()) && pathname !== '/') {
                         return new Response('Not Found', { status: 404 });
                     }
                 }
@@ -770,7 +770,7 @@ Sitemap: https://example.com/sitemap.xml
                 const isPost = request.method === 'POST';
                 const pathSegments = reqUrl.pathname.split('/').filter(p => p);
 
-                if (!isWebSocket && !isPost && reqUrl.pathname !== '/') {
+                if (!isWebSocket && !isPost && reqUrl.pathname.replace(/[?#].*/, '') !== '/') {
                     const tmpAt = (env.u || env.U || '').toLowerCase();
                     const tmpCp = (env.d || env.D || '').toLowerCase();
                     const firstSeg = pathSegments[0] || '';
@@ -1542,7 +1542,7 @@ Sitemap: https://example.com/sitemap.xml
                             }
                         }
                     }
-                    if (url.pathname.includes('/sub')) {
+                    if (url.pathname.replace(/[?#].*/, '').includes('/sub')) {
                         const pathParts = url.pathname.split('/');
                         if (pathParts.length === 2 && pathParts[1] === 'sub') {
                             const user = pathParts[0].substring(1);
