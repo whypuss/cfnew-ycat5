@@ -2743,6 +2743,7 @@ Sitemap: https://example.com/sitemap.xml
                 await addNodesFromList(customDomainList, 'self-test');
             }
         } else if (disablePreferred) {
+            // 空：不做任何優選，直接安全降級
         } else {
             if (epd) {
                 const resolvedDomains = await resolveDomainsToIPs(directDomains);
@@ -4850,8 +4851,8 @@ if (enableECH) {
                         <div style="margin-bottom: 15px;">
                                 <label style="display: block; margin-bottom: 8px; color: #6ab5d0; font-weight: bold; ">${t.preferredControl}</label>
                             <select id="preferredControl" style="width: 100%; padding: 12px; background: #fff; border: 1px solid #ccc; color: #6ab5d0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px;">
-                                    <option value="">${t.preferredControlDefault}</option>
-                                    <option value="yes">${t.preferredControlYes}</option>
+                                    <option value="">使用KV优选</option>
+                                    <option value="no">停用优选（使用wetest）</option>
                             </select>
                                 <small style="color: #b0b0b0; font-size: 0.85rem;">${t.preferredControlHint}</small>
                         </div>
@@ -7957,7 +7958,11 @@ if (enableECH) {
     }
 
     async function updateCustomPreferredFromYx() {
-        const yxbyVal = getConfigValue('yxby', '');
+        // 直接讀 KV yxby key（因為 yxby 可能不在 kvConfig 緩存入面）
+        let yxbyVal = '';
+        try {
+            yxbyVal = await kvStore.get('yxby') || '';
+        } catch (_) {}
         disablePreferred = !!(yxbyVal && yxbyVal.toLowerCase() !== 'yes');
 
         let yxValue = getConfigValue('yx', '');
