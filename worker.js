@@ -2733,18 +2733,7 @@ Sitemap: https://example.com/sitemap.xml
 
         const hasCustomPreferred = customPreferredIPs.length > 0 || customPreferredDomains.length > 0;
 
-        if (!disablePreferred && hasCustomPreferred) {
-            if (customPreferredIPs.length > 0 && epi) {
-                await addNodesFromList(customPreferredIPs, 'self-test');
-            }
-
-            if (customPreferredDomains.length > 0 && epd) {
-                const customDomainList = customPreferredDomains.map(d => ({ ip: d.domain, isp: d.name || d.domain }));
-                await addNodesFromList(customDomainList, 'self-test');
-            }
-        } else if (disablePreferred) {
-            // 空：不做任何優選，直接安全降級
-        } else {
+        if (disablePreferred) {
             if (epd) {
                 const resolvedDomains = await resolveDomainsToIPs(directDomains);
                 const validDomains = resolvedDomains.filter(d => d.resolved === true);
@@ -2766,11 +2755,11 @@ Sitemap: https://example.com/sitemap.xml
                     if (!currentWorkerRegion) {
                         currentWorkerRegion = await detectWorkerRegion(request);
                     }
-                    
+
                     const bestBackupIP = await getBestBackupIP(currentWorkerRegion);
                     if (bestBackupIP) {
                         fallbackAddress = bestBackupIP.address + ':' + bestBackupIP.port;
-                        
+
                         const backupList = [{ ip: bestBackupIP.address, isp: 'ProxyIP-' + currentWorkerRegion }];
                             await addNodesFromList(backupList, 'CMLiussss');
                         }
@@ -2800,12 +2789,23 @@ Sitemap: https://example.com/sitemap.xml
                 const bestBackupIP = await getBestBackupIP(currentWorkerRegion);
                 if (bestBackupIP) {
                     fallbackAddress = bestBackupIP.address + ':' + bestBackupIP.port;
-                    
+
                     const backupList = [{ ip: bestBackupIP.address, isp: 'ProxyIP-' + currentWorkerRegion }];
                         await addNodesFromList(backupList);
                     }
                 }
             }
+        } else if (hasCustomPreferred) {
+            if (customPreferredIPs.length > 0 && epi) {
+                await addNodesFromList(customPreferredIPs, 'self-test');
+            }
+
+            if (customPreferredDomains.length > 0 && epd) {
+                const customDomainList = customPreferredDomains.map(d => ({ ip: d.domain, isp: d.name || d.domain }));
+                await addNodesFromList(customDomainList, 'self-test');
+            }
+        } else {
+            // 末端降級：允許優選但 KV yx 係空，則走 fallback 鏈
         }
 
         // P1-2: Apply quarantine filtering before generating subscription
