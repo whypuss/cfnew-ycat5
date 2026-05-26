@@ -995,14 +995,52 @@ Sitemap: https://example.com/sitemap.xml
                         if (isValid) {
                             return await handlePreferredIPsAPI(request);
                         } else {
-                            return new Response(JSON.stringify({ error: '路径验证失败' }), { 
+                            return new Response(JSON.stringify({ error: '路径验证失败' }), {
                                 status: 403,
                                 headers: { 'Content-Type': 'application/json' }
                             });
                         }
                     }
 
-                    return new Response(JSON.stringify({ error: '无效的API路径' }), { 
+                    return new Response(JSON.stringify({ error: '无效的API路径' }), {
+                        status: 404,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+
+                // /refresh endpoint — clears KV subscription cache for this user
+                if (url.pathname.endsWith('/refresh') && request.method === 'GET') {
+                    const pathParts = url.pathname.split('/').filter(p => p);
+                    const refreshIndex = pathParts.indexOf('refresh');
+                    if (refreshIndex > 0) {
+                        const pathSegments = pathParts.slice(0, refreshIndex);
+                        const pathIdentifier = pathSegments.join('/');
+
+                        let isValid = false;
+                        if (cp && cp.trim()) {
+                            const cleanCustomPath = cp.trim().startsWith('/') ? cp.trim().substring(1) : cp.trim();
+                            isValid = (pathIdentifier === cleanCustomPath);
+                        } else {
+                            isValid = (isValidFormat(pathIdentifier) && pathIdentifier === at);
+                        }
+
+                        if (isValid) {
+                            const userId = at || cp || '';
+                            const userHash = await hashFingerprint(userId);
+                            // Clear all subscription cache keys for this user
+                            const cacheKey = `sub:${userHash}`;
+                            try { await kvStore.delete(cacheKey); } catch (_) {}
+                            return new Response(JSON.stringify({ success: true, message: '订阅缓存已刷新' }), {
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                        } else {
+                            return new Response(JSON.stringify({ error: '路径验证失败' }), {
+                                status: 403,
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                        }
+                    }
+                    return new Response(JSON.stringify({ error: '无效的刷新路径' }), {
                         status: 404,
                         headers: { 'Content-Type': 'application/json' }
                     });
@@ -2650,9 +2688,9 @@ Sitemap: https://example.com/sitemap.xml
         // P1-1: KV subscription cache - cache key fingerprint
         const cacheFingerprint = `${user}|${target}|${echConfig || ''}|${ev}|${et}|${ex}|${ena}|${epi}|${epd}|${egi}|${disablePreferred}|${piu}|${enableECH}|${yxMode}`;
         const cacheKey = `sub:${await hashFingerprint(cacheFingerprint)}`;
-
-        // P1-1: Check KV cache for HIT at start of function
-        if (kvStore) {
+        // P1-1: Check KV cache for HIT at start of function (skip if ?refresh=1)
+        const skipCache = url.searchParams.get('refresh') === '1';
+        if (!skipCache && kvStore) {
             try {
                 const cached = await kvStore.get(cacheKey);
                 if (cached) {

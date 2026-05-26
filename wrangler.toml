@@ -9,7 +9,3 @@ enabled = true
 [[kv_namespaces]]
 binding = "C"
 id = "1d8d85c982a141ada33098ff80cee3bc"
-
-[[routes]]
-pattern = ""
-custom_domain = true
