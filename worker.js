@@ -7557,8 +7557,30 @@ if (enableECH) {
             }
 
             const link = `vless://${user}@${safeIP}:${port}?${params.toString()}#${encodeURIComponent(wsNodeName)}`;
-            // P1-2: Return object with link metadata
             links.push({ link: link, ip: rawIP, port: port, source: source, type: 'vless' });
+
+            // 同時保留 xhttp 節點
+            const xhttpSuffix = '-xhttp';
+            const xhttpNodeName = getNodeName(xhttpSuffix);
+            const xhttpParams = new URLSearchParams({
+                encryption: 'none',
+                security: 'tls',
+                sni: workerDomain,
+                fp: 'chrome',
+                type: 'xhttp',
+                host: workerDomain,
+                path: `/${nodePath}`,
+                mode: 'stream-one'
+            });
+
+            if (enableECH) {
+                const dnsServer = customDNS || 'https://223.5.5.5/dns-query';
+                const echDomain = customECHDomain || 'cloudflare-ech.com';
+                xhttpParams.set('ech', `${echDomain}+${dnsServer}`);
+            }
+
+            const xhttpLink = `vless://${user}@${safeIP}:${port}?${xhttpParams.toString()}#${encodeURIComponent(xhttpNodeName)}`;
+            links.push({ link: xhttpLink, ip: rawIP, port: port, source: source, type: 'vless' });
         }
         return links;
     }
