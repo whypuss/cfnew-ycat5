@@ -31,6 +31,8 @@
 - 订阅输出过滤（20节点/80%/去重）
 - 多客户端支持：CLASH、SURGE、SING-BOX、LOON、QUANTUMULT X、V2RAY、Shadowrocket、STASH、NEKORAY、V2RAYNG
 - 隐藏订阅 URL
+- **KV 优选 IP（YX）模式**：`yxby=yes` 返回 3 个 KV 优选节点；`yxby=no` 返回完整 fallback 链（~266 节点）
+- **`?yx=0` 调试参数**：绕过 KV YX，强制返回完整 fallback 链（~266 节点）
 
 **UI**
 - 白色暖色调 UI
