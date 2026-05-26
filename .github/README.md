@@ -1,20 +1,21 @@
-# cfnew-cat v1.02
+# cfnew-cat v1.03
 
 > ⚠️ **部署后请将兼容日期设置为 `2026-01-20`**
 
 ---
 
-## 🐱 v1.02 更新内容（2025-05）
+## 🐱 v1.03 更新内容（2025-05）
+
+### 新增
+- **`/refresh` endpoint**：清除订阅缓存（`sub:*` keys），返回 `{"success":true,"message":"订阅缓存已刷新"}`
+- **`?refresh=1` / `?__refresh=1`**：绕过订阅缓存，直接从 KV 重新生成
+- **MIME 多态**：User-Agent 自动识别客户端格式（Clash→yaml, Stash→yaml, Surge→surge, SingBox→singbox, Loon→txt, QuantumultX→base64）
+- **双协议节点**：每个 YX IP 生成 `WS-TLS` 和 `xhttp` 两种节点
+- **`?yx=0` 调试参数**：绕过 KV YX，强制返回完整 fallback 链（~266 节点）
 
 ### 修覆
-- **backupHost 漏網**：6 處 `bestBackupIP.domain` 全部改為 `.address`，彻底切断域名依赖
-- **Quarantine 繞過**：`source === 'direct-domains'` 的節點跳過 quarantine 檢查
-- **Quarantine Key**：从 IP 級別改為 IP+Port 複合 key，避免同一 IP 不同端口被錯誤隔離
-
-### v1.01 DNS 迴圈修復（保留）
-- **backupIPs 硬編碼**：移除所有 `ProxyIP.*.CMLiussss.net` 域名，改用 Cloudflare Anycast IP
-- **resolveDomainsToIPs**：Google DoH 預解析 directDomains，客戶端直連真實 IP
-- **`forwardTCP` retryConnection**：fallback 階段直接使用 `.address`
+- **YX cache 分离**：加入 `yxMode`（yx-on/yx-off/no-yx）到 cacheFingerprint，防止 yxby=no 和 `?yx=0` 缓存冲突
+- **KV yx 解析 bug**：`split(',')` 改为 `split(/[\n,]/)`，支持 `\n` 分隔的 yx 格式
 
 ---
 
@@ -34,12 +35,13 @@
 - Random response headers（x-build, x-edge, x-runtime）
 
 **訂閱功能**
-- 多協議支持：VLESS、Trojan、xhttp、ECH
+- 多協議支持：VLESS、Trojan、WS-TLS、xhttp、ECH
 - KV 預編譯 cache（15min TTL）
 - 三層健康檢查（TCP→TLS→WS）
 - 節點信譽 + quarantine 系統
 - 訂閱輸出過濾（20節點/80%/去重）
 - 隱藏訂閱 URL
+- **KV 优选 IP（YX）模式**：`yxby=yes` 返回 3 个 KV 优选节点；`yxby=no` 返回完整 fallback 链（~266 节点）
 
 **UI**
 - 白色暖色調 UI
