@@ -2677,6 +2677,25 @@ Sitemap: https://example.com/sitemap.xml
         const workerDomain = url.hostname;
         const target = url.searchParams.get('target') || 'base64';
 
+        // P0: MIME 多態 — 根據 UA 自動偵測客戶端格式（當無 explicit target param）
+        const ua = request.headers.get('User-Agent') || '';
+        const accept = request.headers.get('Accept') || '';
+        let autoFormat = null;
+        if (target === 'base64' && (ua.includes('Clash') || ua.includes('clash') || accept.includes('yaml') || accept.includes('yml'))) {
+            autoFormat = 'clash';
+        } else if (target === 'base64' && (ua.includes('Surge') || ua.includes('Surge-') || ua.includes('surge'))) {
+            autoFormat = 'surge';
+        } else if (target === 'base64' && (ua.includes('Quantumult') || ua.includes('quantumult'))) {
+            autoFormat = 'quantumult';
+        } else if (target === 'base64' && (ua.includes('Loon') || ua.includes('loon'))) {
+            autoFormat = 'loon';
+        } else if (target === 'base64' && (ua.includes('Sing-Box') || ua.includes('sing-box'))) {
+            autoFormat = 'singbox';
+        }
+        if (autoFormat) {
+            console.log('[MIME] Auto-detected format=' + autoFormat + ' from UA, using instead of base64');
+        }
+
         // 如果启用了ECH，使用自定义值
         let echConfig = null;
         if (enableECH) {
@@ -2874,7 +2893,8 @@ Sitemap: https://example.com/sitemap.xml
         let subscriptionContent;
         let contentType = 'text/plain; charset=utf-8';
 
-        switch (target.toLowerCase()) {
+        const switchTarget = autoFormat || target;
+        switch (switchTarget.toLowerCase()) {
             case atob('Y2xhc2g='):     // clash
             case atob('Y2xhc2hy'):     // clashr
             case 'stash':
