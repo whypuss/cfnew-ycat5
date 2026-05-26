@@ -24,7 +24,7 @@
 - Random response headers（x-build, x-edge, x-runtime）
 
 **订阅功能**
-- 多协议支持：VLESS、Trojan、xhttp、ECH
+- 多协议支持：VLESS、Trojan、WS-TLS、xhttp、ECH
 - KV 预编译 cache（15min TTL）
 - 三层健康检查（TCP→TLS→WS）
 - 节点信誉 + quarantine 系统
@@ -33,6 +33,10 @@
 - 隐藏订阅 URL
 - **KV 优选 IP（YX）模式**：`yxby=yes` 返回 3 个 KV 优选节点；`yxby=no` 返回完整 fallback 链（~266 节点）
 - **`?yx=0` 调试参数**：绕过 KV YX，强制返回完整 fallback 链（~266 节点）
+- **`?refresh=1` / `?__refresh=1`**：绕过订阅缓存，直接从 KV 重新生成
+- **`/refresh` endpoint**：清除订阅缓存（`sub:*` keys），返回确认 JSON
+- **MIME 多态**：User-Agent 自动识别客户端格式（Clash→yaml, Stash→yaml, Surge→surge, SingBox→singbox, Loon→txt, QuantumultX→base64）
+- **双协议节点**：每个 YX IP 生成 `WS-TLS` 和 `xhttp` 两种节点（xhttp 需要 HTTP/3 支持，部分环境不可用）
 
 **UI**
 - 白色暖色调 UI
@@ -44,11 +48,11 @@
 
 | 功能 | 优先级 | 状态 |
 |------|--------|------|
-| `/refresh` endpoint | P0 | ⚠️ 缺失 |
-| `?refresh=1` query param | P0 | ⚠️ 缺失 |
+| `/refresh` endpoint | P0 | ✅ 已完成 |
+| `?refresh=1` query param | P0 | ✅ 已完成 |
+| Subscription MIME 多态 | P0 | ✅ 已完成 |
 | Config source tracing（`__trace`） | Stable-2 | ⚠️ 缺失 |
 | Route registry centralization（`matchRoute`） | Stable-3 | ⚠️ 缺失 |
-| Subscription MIME 多态 | P2-1 | ⏸️ 延期 |
 | Query param polymorphism | P2-2 | ⏸️ 延期 |
 | Rate limit（同 IP 30s） | P2-3 | ⏸️ 延期 |
 | WebSocket connect backoff | P2-3 | ⏸️ 延期 |
