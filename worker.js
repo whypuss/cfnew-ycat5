@@ -7536,18 +7536,18 @@ if (enableECH) {
                 return namer(nodeNameBase, nodeName);
             };
 
-            const suffix = '-xhttp';
+            const suffix = '-WS-TLS';
             const wsNodeName = getNodeName(suffix);
 
+            const wsPath = '/?ed=2048';
             const params = new URLSearchParams({
                 encryption: 'none',
                 security: 'tls',
                 sni: workerDomain,
                 fp: 'chrome',
-                type: 'xhttp',
+                type: 'ws',
                 host: workerDomain,
-                path: `/${nodePath}`,
-                mode: 'stream-one'
+                path: wsPath
             });
 
             if (enableECH) {
