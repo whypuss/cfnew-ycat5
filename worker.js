@@ -2624,13 +2624,16 @@ Sitemap: https://example.com/sitemap.xml
         if (!url) url = new URL(request.url);
 
         // ?yx=0 → disablePreferred 最高優先級，bypass KV yx，直接 fallback wetest+epd+egi
+        let yxMode = 'default';
         if (url.searchParams.get('yx') === '0') {
             disablePreferred = true;
+            yxMode = 'no-yx';
         }
 
         const finalLinks = [];
         if (!disablePreferred) {
                         await updateCustomPreferredFromYx();
+            yxMode = (await kvStore.get('yxby') || 'yes').toLowerCase() === 'yes' ? 'yx-on' : 'yx-off';
         }
         console.log('[DEBUG after update] customPreferredIPs.length=' + customPreferredIPs.length + ', customPreferredDomains.length=' + customPreferredDomains.length);
         const workerDomain = url.hostname;
@@ -2645,7 +2648,7 @@ Sitemap: https://example.com/sitemap.xml
         }
 
         // P1-1: KV subscription cache - cache key fingerprint
-        const cacheFingerprint = `${user}|${target}|${echConfig || ''}|${ev}|${et}|${ex}|${ena}|${epi}|${epd}|${egi}|${disablePreferred}|${piu}|${enableECH}`;
+        const cacheFingerprint = `${user}|${target}|${echConfig || ''}|${ev}|${et}|${ex}|${ena}|${epi}|${epd}|${egi}|${disablePreferred}|${piu}|${enableECH}|${yxMode}`;
         const cacheKey = `sub:${await hashFingerprint(cacheFingerprint)}`;
 
         // P1-1: Check KV cache for HIT at start of function
