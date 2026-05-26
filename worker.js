@@ -2623,8 +2623,15 @@ Sitemap: https://example.com/sitemap.xml
     async function handleSubscriptionRequest(request, user, url = null) {
         if (!url) url = new URL(request.url);
 
+        // ?yx=0 → disablePreferred 最高優先級，bypass KV yx，直接 fallback wetest+epd+egi
+        if (url.searchParams.get('yx') === '0') {
+            disablePreferred = true;
+        }
+
         const finalLinks = [];
+        if (!disablePreferred) {
                         await updateCustomPreferredFromYx();
+        }
         console.log('[DEBUG after update] customPreferredIPs.length=' + customPreferredIPs.length + ', customPreferredDomains.length=' + customPreferredDomains.length);
         const workerDomain = url.hostname;
         const target = url.searchParams.get('target') || 'base64';
