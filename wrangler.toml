@@ -6,6 +6,10 @@ account_id = "060f73f6854fc6dc3232d4d85704bd3f"
 [observability]
 enabled = true
 
+[vars]
+d = "qaws"
+D = "qaws"
+
 [[kv_namespaces]]
 binding = "C"
 id = "1d8d85c982a141ada33098ff80cee3bc"
