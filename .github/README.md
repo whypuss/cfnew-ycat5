@@ -1,10 +1,25 @@
-# cfnew-cat v1.05
+# cfnew-cat v1.07
 
 > ⚠️ **部署后请将兼容日期设置为 `2026-01-20`**
 
 ---
 
-## 🐱 v1.05 更新内容（2026-05）
+## 🐱 v1.07 更新内容（2026-05）
+
+### 新增
+- **混淆 Pipeline（build.js）**：三階段自動化（Terser 壓縮 → javascript-obfuscator 字串陣列 → Logic Lock 環境完整性檢測）
+- **stringArray base64 編碼**：80% 字串進入 stringArray 並以 base64 編碼
+- **numbersToExpressions**：算術表達式混淆（零 CPU 噪音）
+- **mangled-shuffled 標識符**：全局/局部變量名雙重混淆策略
+
+### 修覆
+- **renameGlobals: false**：修復 `renameGlobals: true` 導致 string array accessor 全局撞名，變量變 undefined → TypeError
+- **deadCodeInjection 移除**：0.5% threshold 即超 1MB limit，無法使用
+- **build.js format block indentation**：修復 `format:` 被錯誤嵌套於 `compress:` 之內的問題
+
+### 性能
+- Upload: 649 KB / 197 KB gzip
+- Worker Startup Time: 292 ms
 
 ### 新增
 - **`/refresh` endpoint**：清除订阅缓存（`sub:*` keys），返回 `{"success":true,"message":"订阅缓存已刷新"}`

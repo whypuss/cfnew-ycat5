@@ -1,12 +1,12 @@
-# cfnew-cat 终端 v1.0
+# cfnew-cat 终端 v1.07
 
-> ⚠️ **部署后请将兼容日期设置为 `2025-01-01`**
+> ⚠️ **部署后请将兼容日期设置为 `2026-01-20`**
 >
 > ⚠️ **KV Namespace 已迁移，使用新的 Namespace ID（见 wrangler.toml）**
 
 ---
 
-## 版本进度（v1.0）
+## 版本进度（v1.07）
 
 ### ✅ 已完成功能
 
@@ -17,6 +17,13 @@
 - Header key 随机化（X-Real-IP→cf-uf 等）
 - `build/mappings.json` committed as artifact
 - deterministic build（同一 seed 每次结果一致）
+
+**混淆 Pipeline（build.js）**
+- Stage 1: Terser 压缩（mangle + compress + dead-code elimination）
+- Stage 2: javascript-obfuscator（stringArray base64 + numbersToExpressions + mangled-shuffled）
+- Stage 3: Logic Lock（CF 环境完整性检测，静默污染 fetch）
+- Upload: 649 KB / 197 KB gzip
+- Worker Startup Time: 292 ms
 
 **静态资源**
 - `static/` 目录（index.html, robots.txt, favicon.ico）
@@ -36,7 +43,7 @@
 - **`?refresh=1` / `?__refresh=1`**：绕过订阅缓存，直接从 KV 重新生成
 - **`/refresh` endpoint**：清除订阅缓存（`sub:*` keys），返回确认 JSON
 - **MIME 多态**：User-Agent 自动识别客户端格式（Clash→yaml, Stash→yaml, Surge→surge, SingBox→singbox, Loon→txt, QuantumultX→base64）
-- **双协议节点**：每个 YX IP 生成 `WS-TLS` 和 `xhttp` 两种节点（xhttp 需要 HTTP/3 支持，部分环境不可用）
+- **双协议节点**：每个 YX IP 生成 `WS-TLS` 和 `xhttp` 两种节点
 
 **UI**
 - 白色暖色调 UI
