@@ -1,4 +1,4 @@
-# cfnew-cat 终端 v1.07
+# cfnew-cat 终端 v1.08
 
 > ⚠️ **部署后请将兼容日期设置为 `2026-01-20`**
 >
@@ -6,7 +6,17 @@
 
 ---
 
-## 版本进度（v1.07）
+## ⚠️ 重要：部署方式
+
+**请勿直接部署 `worker.js` / `plain.js` / `obfuscated.js`！**
+
+**正确方式：使用 `少年你相信光吗`（混淆后的 deploy artifact）**
+
+`少年你相信光吗` = 经过完整三层混淆的 worker 文件，大小 634KB，已通过 CF 检测。
+
+---
+
+## 版本进度（v1.08）
 
 ### ✅ 已完成功能
 
@@ -15,12 +25,12 @@
 - Enum/constant name 随机化（vless→ak, ws→ku 等）
 - Response key 随机化（ip→a, port→svc 等）
 - Header key 随机化（X-Real-IP→cf-uf 等）
-- `build/mappings.json` committed as artifact
+- `build/mappings.json` committed as artifact（仅你自己可见，用于调试）
 - deterministic build（同一 seed 每次结果一致）
 
 **混淆 Pipeline（build.js）**
 - Stage 1: Terser 压缩（mangle + compress + dead-code elimination）
-- Stage 2: javascript-obfuscator（stringArray base64 + numbersToExpressions + mangled-shuffled）
+- Stage 2: javascript-obfuscator（stringArray base64 + mangled-shuffled）
 - Stage 3: Logic Lock（CF 环境完整性检测，静默污染 fetch）
 - Upload: 649 KB / 197 KB gzip
 - Worker Startup Time: 292 ms
@@ -67,23 +77,81 @@
 
 ---
 
-## 部署说明
+## 🚀 部署指南（Workers）
 
-**Workers 部署：**
+### 第一步：上传 deploy artifact
+
 1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com/)
-2. 进入 **Workers 和 Pages** → 创建 Worker
-3. 点击 **设置** → **运行时** → **兼容性日期** → 选择 `2025-01-01`
-4. 粘贴 `worker.js` 的内容作为 Worker 代码
+2. 进入 **Workers 和 Pages** → 创建 Worker（或使用现有 Worker）
+3. 点击 **设置** → **运行时** → **兼容性日期** → 选择 `2026-01-20`
+4. 上传 `少年你相信光吗` 作为 Worker 代码（直接粘贴文件内容，或用 wrangler deploy）
 
-**Pages 部署：**
-1. 进入 **Workers 和 Pages** → 创建 Pages 项目
-2. 上传 `static` 目录
-3. 设置兼容性日期 `2025-01-01`
+### 第二步：配置环境变量（Bindings）
 
-**KV 配置：**
-1. 在 Workers 页面左侧找到 **KV** → 创建命名空间（名称随意，如 `cfnew-cat`）
-2. 复制新的 Namespace ID 到 `wrangler.toml`
-3. 写入配置 key: `c`，value 为 JSON 配置
+在 Worker 设置中添加以下环境变量：
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
+| `d` | `qaws` | 自定义路径前缀 |
+| `D` | `qaws` | 同上（兼容） |
+| `C` | KV Namespace ID | KV 命名空间绑定 |
+
+**KV Namespace 绑定：**
+1. Workers 页面左侧 → **KV** → 创建命名空间（名称随意）
+2. 复制 Namespace ID 到 `wrangler.toml` 的 `env.C` 绑定
+3. 或在 Workers 设置 → **KV 命名空间绑定** → 添加 `C` 绑定到你的命名空间
+
+### 第三步：获取订阅 URL
+
+格式：`https://<worker-subdomain>.workers.dev/qaws/sub`
+
+示例：`https://cfnew-ws03.agooxo.workers.dev/qaws/sub`
+
+---
+
+## 🔧 Wrangler 部署（推荐）
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 配置 Cloudflare token
+export CLOUDFLARE_API_TOKEN='your-token-here'
+
+# 3. 部署（使用混淆后的 worker）
+npx wrangler deploy
+
+# 部署会自动使用 worker.js，但请确保上传的是 少年你相信光吗
+```
+
+**wrangler.toml 参考：**
+```toml
+name = "cfnew-cat"
+main = "worker.js"
+compatibility_date = "2026-01-20"
+
+[vars]
+d = "qaws"
+D = "qaws"
+
+[[kv_namespaces]]
+binding = "C"
+id = "你的-KV-Namespace-ID"
+```
+
+---
+
+## 📁 文件说明
+
+| 文件 | 说明 | 用途 |
+|------|------|------|
+| `少年你相信光吗` | **混淆后的 deploy artifact** | ⭐ 唯一需要部署的文件 |
+| `worker.js` | 混淆后的 worker（别名） | 部署用 |
+| `plain.js` | 明文源代码 | 本地开发参考 |
+| `obfuscated.js` | 中间产物（Stage 2 输出） | 调试用 |
+| `build.js` | 混淆 Pipeline 脚本 | 本地 build 用 |
+| `build/mappings.json` | Route 对照表 | **你自己保留，勿泄露** |
+| `static/` | 静态资源目录 | Pages 部署用 |
 
 ---
 
